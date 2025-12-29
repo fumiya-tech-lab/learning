@@ -1,4 +1,0 @@
-{
-  "buildCommand": "cd pwa-sample && npm run build",
-  "outputDirectory": "pwa-sample/.next"
-}
