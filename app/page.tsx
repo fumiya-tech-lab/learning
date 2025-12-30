@@ -1,317 +1,157 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Printer, Calculator, Calendar, BookOpen } from "lucide-react";
 
-// 環境変数からパスワードを読み込み（NEXT_PUBLIC_ をつけているのでブラウザ側で読み込めます）
-const SECRET_PASSWORD = process.env.NEXT_PUBLIC_APP_PASSWORD || "SET_PASSWORD_IN_ENV";
+export default function StudyKarte() {
+  // 状態管理
+  const [totalPages, setTotalPages] = useState(300);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [dailyPace, setDailyPace] = useState(10); // 1日の目標ページ数
 
-interface Material {
-  name: string;
-  totalAmount: number;
-  days: number;
-}
-
-interface ReviewTask {
-  date: string;
-  content: string;
-  id: number;
-}
-
-interface StudyLog {
-  date: string;
-  summary: string;
-}
-
-export default function Home() {
-  const [materials, setMaterials] = useState<Material[]>([{ name: "", totalAmount: 0, days: 0 }]);
-  const [savedData, setSavedData] = useState<any>(null);
-  const [mounted, setMounted] = useState(false);
-  const [view, setView] = useState<"form" | "schedule" | "history">("form");
-
-  // 認証用
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [passwordInput, setPasswordInput] = useState("");
-
-  // AI & ログ
-  const [summary, setSummary] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [base64Image, setBase64Image] = useState<string | null>(null);
-  const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
-  const [studyLogs, setStudyLogs] = useState<StudyLog[]>([]);
-
-  useEffect(() => {
-    setMounted(true);
-    const authStatus = localStorage.getItem("isAuthorized");
-    if (authStatus === "true") setIsAuthorized(true);
-
-    const saved = localStorage.getItem("studyData");
-    const savedReviews = localStorage.getItem("reviewTasks");
-    const savedLogs = localStorage.getItem("studyLogs");
-    
-    if (saved) {
-      setSavedData(JSON.parse(saved));
-      setView("schedule");
-    }
-    if (savedReviews) setReviewTasks(JSON.parse(savedReviews));
-    if (savedLogs) setStudyLogs(JSON.parse(savedLogs));
-  }, []);
-
-  if (!mounted) return null;
-
-  // --- 認証ロジック ---
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordInput === SECRET_PASSWORD) {
-      setIsAuthorized(true);
-      localStorage.setItem("isAuthorized", "true");
-    } else {
-      alert("Ungültiger Code / 無効なコードです");
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthorized");
-    setIsAuthorized(false);
-  };
-
-  // --- ログ保存 & バックアップ ---
-  const saveToLogAndBackup = async (newSummary: string) => {
-    const newLog: StudyLog = { date: new Date().toLocaleString('ja-JP'), summary: newSummary };
-    const updatedLogs = [newLog, ...studyLogs];
-    setStudyLogs(updatedLogs);
-    localStorage.setItem("studyLogs", JSON.stringify(updatedLogs));
-
-    try {
-      await fetch("/api/sheets", {
-        method: "POST",
-        body: JSON.stringify(newLog),
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (e) { console.error("Backup Error", e); }
-  };
-
-  // --- AI 解析 ---
-  const requestSummary = async () => {
-    if (!base64Image) return alert("Bild auswählen / 画像を選択してください");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/summarize", {
-        method: "POST",
-        body: JSON.stringify({ image: base64Image }),
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      
-      setSummary(data.summary);
-      saveToLogAndBackup(data.summary);
-      
-      const today = new Date();
-      const intervals = [1, 3, 7];
-      const newTasks = intervals.map(interval => {
-        const d = new Date(); d.setDate(today.getDate() + interval);
-        return { id: Date.now() + interval, date: d.toLocaleDateString('ja-JP'), content: data.summary };
-      });
-      setReviewTasks([...reviewTasks, ...newTasks]);
-      localStorage.setItem("reviewTasks", JSON.stringify([...reviewTasks, ...newTasks]));
-      alert("Protokoll aktualisiert / 記録を更新しました");
-    } catch (err: any) { alert(`Fehler: ${err.message}`); } finally { setLoading(false); }
-  };
-
-  const handleSavePlan = () => {
-    if (materials.some(m => !m.name || !m.totalAmount || !m.days)) return alert("Bitte Felder ausfüllen");
-    const data = { materials, startDate: new Date().toISOString() };
-    setSavedData(data);
-    localStorage.setItem("studyData", JSON.stringify(data));
-    setView("schedule");
-  };
-
-  const todayStr = new Date().toLocaleDateString('ja-JP');
-  const todaysReviews = reviewTasks.filter(task => task.date === todayStr);
-  const lastLog = studyLogs.length > 0 ? studyLogs[0] : null;
-  const elapsed = savedData ? Math.floor((new Date().getTime() - new Date(savedData.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0;
-
-  // --- A4プリント最適化設定 ---
-  const printStyle = `
-    @media print {
-      @page { size: A4 portrait; margin: 0; }
-      body { background: white !important; }
-      .no-print { display: none !important; }
-      .print-container { 
-        width: 210mm !important; height: 297mm !important; 
-        padding: 20mm !important; box-shadow: none !important; border: none !important;
-        margin: 0 !important; display: flex !important; flex-direction: column !important;
-      }
-      .print-content { zoom: 0.85; }
-    }
-  `;
-
-  // --- UI 1: Login (Zugriffsprotokoll) ---
-  if (!isAuthorized) {
-    return (
-      <main className="min-h-screen bg-stone-100 flex items-center justify-center p-6 font-serif">
-        <div className="bg-white p-12 shadow-2xl border border-slate-200 max-w-sm w-full relative">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-800"></div>
-          <h1 className="text-xl font-light tracking-[0.2em] uppercase text-center mb-8 italic">Zugriffsprotokoll</h1>
-          <form onSubmit={handleLogin} className="space-y-6 text-center">
-            <input 
-              type="password" 
-              value={passwordInput} 
-              onChange={(e) => setPasswordInput(e.target.value)}
-              className="w-full border-b border-slate-200 p-2 text-center outline-none focus:border-slate-800 transition-colors"
-              placeholder="Passwort"
-              autoFocus
-            />
-            <button type="submit" className="w-full bg-slate-800 text-white py-4 text-[9px] tracking-[0.5em] uppercase hover:bg-slate-700 transition-all">Verifizieren</button>
-          </form>
-        </div>
-      </main>
-    );
+  // 計算ロジック: 残りページ数から完了までの日数を算出
+  const remainingPages = totalPages - currentPage;
+  const daysToFinish = dailyPace > 0 ? Math.ceil(remainingPages / dailyPace) : 0;
+  
+  // 完了予定日の計算
+  const finishDate = new Date();
+  if (daysToFinish > 0) {
+    finishDate.setDate(finishDate.getDate() + daysToFinish);
   }
 
-  // --- UI 2: History (Archiv) ---
-  if (view === "history") {
-    return (
-      <main className="min-h-screen bg-stone-50 p-8 text-slate-800 max-w-2xl mx-auto font-serif">
-        <header className="mb-12 border-b border-slate-800 pb-4 flex justify-between items-end">
-           <button onClick={() => setView("schedule")} className="text-2xl font-light tracking-[0.2em] uppercase hover:opacity-50 transition-opacity">学習カルテ</button>
-           <button onClick={handleLogout} className="text-[8px] text-slate-300 uppercase tracking-widest hover:text-slate-800">Abmelden</button>
-        </header>
-        <div className="space-y-8">
-          <h2 className="text-[10px] text-slate-400 uppercase tracking-[0.4em] mb-4 text-center">Historisches Archiv</h2>
-          {studyLogs.map((log, i) => (
-            <div key={i} className="border-b border-slate-100 pb-6">
-              <p className="text-[10px] text-slate-400 font-mono mb-2">DATUM: {log.date}</p>
-              <p className="text-sm leading-relaxed text-slate-600 italic">"{log.summary}"</p>
-            </div>
-          ))}
-        </div>
-      </main>
-    );
-  }
-
-  // --- UI 3: Karte (Hauptansicht) ---
-  if (view === "schedule" && savedData) {
-    return (
-      <main className="min-h-screen bg-stone-100 p-4 md:p-8 flex flex-col items-center text-slate-800 font-serif">
-        <style>{printStyle}</style>
-        <div className="flex gap-4 mb-6 no-print w-full max-w-[210mm]">
-          <button onClick={() => setView("form")} className="flex-1 bg-white border border-slate-200 py-2 rounded text-[9px] tracking-widest uppercase hover:bg-slate-50 transition-all">Einstellungen</button>
-          <button onClick={() => setView("history")} className="flex-1 bg-white border border-slate-200 py-2 rounded text-[9px] tracking-widest uppercase hover:bg-slate-50 transition-all">Archiv</button>
-          <button onClick={() => window.print()} className="flex-1 bg-slate-800 text-white py-2 rounded text-[9px] tracking-widest uppercase shadow-md hover:bg-slate-700 transition-all">PDF Export</button>
-        </div>
-
-        <div className="print-container bg-white shadow-2xl p-16 w-full max-w-[210mm] min-h-[297mm] flex flex-col border border-slate-200 relative">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-800"></div>
-          
-          <header className="flex justify-between items-baseline border-b border-slate-800 pb-6 mb-10">
-            <button onClick={() => setView("schedule")} className="hover:opacity-60 transition-opacity text-left">
-              <h1 className="text-3xl font-light tracking-[0.3em] text-slate-800 uppercase">学習カルテ</h1>
-            </button>
-            <div className="text-right font-mono text-[9px] text-slate-400 uppercase">
-              <p>Datum: {todayStr}</p>
-              <p>Fall Nr: {elapsed.toString().padStart(3, '0')}</p>
-            </div>
-          </header>
-
-          <div className="flex-1 space-y-12 print-content">
-            {lastLog && (
-              <section className="p-6 bg-slate-50/50 border-l border-slate-300 italic">
-                <h2 className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.4em] mb-3">Vorherige Diagnose / 前回の分析</h2>
-                <p className="text-xs leading-relaxed text-slate-500">"{lastLog.summary}"</p>
-              </section>
-            )}
-
-            <section className="space-y-6">
-              <h2 className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2">Heutiges Protokoll / 本日の計画</h2>
-              <div className="grid gap-4">
-                {savedData.materials.map((m: Material, i: number) => {
-                  const isFinished = elapsed > m.days;
-                  return (
-                    <div key={i} className={`flex justify-between items-end py-1.5 border-b border-slate-50 ${isFinished ? 'opacity-20' : ''}`}>
-                      <div>
-                        <p className="text-base text-slate-800">{m.name}</p>
-                        <p className="text-[8px] text-slate-400 font-mono mt-0.5 uppercase tracking-tighter italic">Tag {elapsed} / {m.days}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-3xl font-light text-slate-800">{isFinished ? "ENDE" : Math.ceil(m.totalAmount / m.days)}</span>
-                        {!isFinished && <span className="text-[8px] ml-2 text-slate-300 uppercase font-mono">Seiten</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {todaysReviews.length > 0 && (
-               <section className="space-y-4">
-                 <h2 className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2">Wiederholungsaufgaben / 復習要請</h2>
-                 <div className="space-y-2">
-                   {todaysReviews.map(t => (
-                     <p key={t.id} className="text-[11px] text-slate-600 leading-relaxed pl-4 border-l border-slate-200 italic">・{t.content.substring(0, 120)}...</p>
-                   ))}
-                 </div>
-               </section>
-            )}
-
-            <section className="mt-12 p-8 border border-slate-100 no-print bg-stone-50/50">
-              <h2 className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.4em] mb-4">Beobachtung / 記録と解析</h2>
-              <div className="space-y-4">
-                <input type="file" accept="image/*" onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => setBase64Image(reader.result as string);
-                    reader.readAsDataURL(file);
-                  }
-                }} className="block w-full text-[9px] text-slate-300 cursor-pointer" />
-                
-                <button onClick={requestSummary} disabled={loading || !base64Image} className="w-full bg-slate-800 text-white py-3.5 text-[9px] tracking-[0.5em] uppercase hover:bg-slate-700 transition-colors disabled:bg-slate-100">
-                  {loading ? "Analysiere..." : "Bestätigen & Speichern"}
-                </button>
-                {summary && <div className="mt-6 text-[11px] italic leading-relaxed text-slate-400 border-t border-slate-50 pt-6">"{summary}"</div>}
-              </div>
-            </section>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // --- UI 4: Setup (Initialisierung) ---
   return (
-    <main className="min-h-screen p-8 md:p-16 bg-stone-50 text-slate-800 max-w-2xl mx-auto font-serif">
-      <header className="mb-20 mt-8 flex justify-between items-end border-b border-slate-800 pb-4">
-        <button onClick={() => { if(savedData) setView("schedule") }} className="text-3xl font-light tracking-[0.3em] uppercase hover:opacity-50 transition-opacity">学習カルテ</button>
-        <button onClick={handleLogout} className="text-[8px] text-slate-300 uppercase tracking-widest hover:text-slate-800">Abmelden</button>
-      </header>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 print:bg-white print:p-0">
+      <div className="max-w-4xl mx-auto space-y-6 print:space-y-0">
+        
+        {/* 【設定パネル】 印刷時には完全に非表示 */}
+        <Card className="print:hidden shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-blue-600" /> 学習計画の入力
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-600">総ページ数</label>
+              <Input 
+                type="number" 
+                value={totalPages} 
+                onChange={(e) => setTotalPages(Number(e.target.value))}
+                className="bg-white"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-600">現在の完了ページ</label>
+              <Input 
+                type="number" 
+                value={currentPage} 
+                onChange={(e) => setCurrentPage(Number(e.target.value))}
+                className="bg-white"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-600">1日のペース (p/日)</label>
+              <Input 
+                type="number" 
+                value={dailyPace} 
+                onChange={(e) => setDailyPace(Number(e.target.value))}
+                className="bg-white"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-      <div className="space-y-16">
-        <section className="space-y-8">
-          <div className="flex justify-between items-end border-b border-slate-100 pb-2">
-            <h2 className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.4em]">Lernmaterialien / 教材</h2>
-            <button onClick={() => setMaterials([...materials, { name: "", totalAmount: 0, days: 0 }])} className="text-[9px] text-slate-800 border-b border-slate-800 hover:opacity-50 transition-all">+ Hinzufügen</button>
+        {/* 【学習カルテ本体】 */}
+        <div className="bg-white shadow-xl border border-gray-200 rounded-lg p-6 md:p-12 print:shadow-none print:border-none print:p-8 print:m-0 print:w-full print:rounded-none">
+          
+          {/* ヘッダー部分 */}
+          <div className="flex justify-between items-end border-b-2 border-black pb-2 mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-[0.2em] text-gray-800">学 習 カ ル テ</h1>
+            <div className="text-right text-[10px] md:text-xs text-gray-500 font-mono space-y-0.5">
+              <p>DATE: {new Date().toLocaleDateString('ja-JP')}</p>
+              <p>STATUS: {currentPage >= totalPages ? 'COMPLETED' : 'IN PROGRESS'}</p>
+            </div>
           </div>
+
           <div className="space-y-6">
-            {materials.map((m, index) => (
-              <div key={index} className="space-y-6 bg-white p-8 border border-slate-100 shadow-sm">
-                <input type="text" value={m.name} onChange={(e) => {const c=[...materials]; c[index].name=e.target.value; setMaterials(c);}} className="w-full border-b border-slate-100 p-2 text-sm focus:border-slate-800 outline-none transition-all" placeholder="Name des Lernmaterials" />
-                <div className="flex gap-8">
-                  <div className="flex-1">
-                    <label className="text-[8px] text-slate-300 uppercase block mb-1">Zieltage</label>
-                    <input type="number" value={m.days || ""} onChange={(e) => {const c=[...materials]; c[index].days=Number(e.target.value); setMaterials(c);}} className="w-full border-b border-slate-100 p-2 text-sm focus:border-slate-800 outline-none font-mono" placeholder="00" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-[8px] text-slate-300 uppercase block mb-1">Gesamtseiten</label>
-                    <input type="number" value={m.totalAmount || ""} onChange={(e) => {const c=[...materials]; c[index].totalAmount=Number(e.target.value); setMaterials(c);}} className="w-full border-b border-slate-100 p-2 text-sm focus:border-slate-800 outline-none font-mono" placeholder="000" />
+            {/* 上段：進捗と予測の2カラム（スマホでは縦並び、印刷では横並び） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-2 print:gap-8 border-b pb-6">
+              
+              {/* 進捗状況 */}
+              <div className="space-y-3">
+                <h2 className="text-sm font-bold border-l-4 border-black pl-2 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" /> 進捗状況
+                </h2>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-light">{currentPage}</span>
+                  <span className="text-gray-400 text-sm">/ {totalPages} ページ</span>
+                </div>
+                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-black h-full transition-all duration-700" 
+                    style={{ width: `${Math.min(100, (currentPage / totalPages) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400">達成率: {Math.floor((currentPage / totalPages) * 100)}%</p>
+              </div>
+
+              {/* 完了予測 */}
+              <div className="bg-gray-50 p-4 rounded print:bg-white print:border print:p-3 space-y-2">
+                <h2 className="text-sm font-bold flex items-center gap-2 mb-1">
+                  <Calendar className="w-4 h-4" /> 完了予測
+                </h2>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p>目標ペース: <span className="font-semibold">{dailyPace} p/日</span></p>
+                  <p>残りページ: <span className="font-semibold">{remainingPages} p</span></p>
+                </div>
+                <div className="pt-2 border-t border-gray-200">
+                  <p className="text-[10px] text-gray-500">完了予定まであと</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold">{daysToFinish}</span>
+                    <span className="text-xs font-normal">日</span>
+                    <span className="text-xs text-gray-600 ml-2">({finishDate.toLocaleDateString('ja-JP')} 予定)</span>
                   </div>
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* 本日の学習内容：2枚目に行かないようコンパクトに */}
+            <section className="space-y-3">
+              <h2 className="text-sm font-bold border-l-4 border-black pl-2">本日の学習内容</h2>
+              <div className="border border-dashed border-gray-300 rounded p-3 min-h-[60px] text-sm text-gray-700">
+                <p className="font-medium">教材：メイン教材 (現在 {currentPage} ページまで完了)</p>
+                <p className="text-xs text-gray-500 mt-1">※ 本日の具体的な範囲や課題をここに記入してください。</p>
+              </div>
+            </section>
+
+            {/* 振り返り・メモ：高さを柔軟にし、印刷時のはみ出しを防止 */}
+            <section className="space-y-3">
+              <h2 className="text-sm font-bold border-l-4 border-black pl-2">振り返り・メモ</h2>
+              <div className="border border-gray-300 rounded w-full p-4 min-h-[180px] print:min-h-[250px] bg-gray-50/30 print:bg-white">
+                <p className="text-xs text-gray-300 print:hidden italic">（印刷後、こちらに手書きで記入できます）</p>
+              </div>
+            </section>
           </div>
-        </section>
-        <button onClick={handleSavePlan} className="w-full bg-slate-800 text-white py-5 text-[9px] tracking-[0.6em] uppercase hover:bg-slate-700 shadow-2xl transition-all">Karte erstellen / カルテ作成</button>
+
+          <footer className="mt-8 pt-4 border-t border-gray-100 text-[9px] text-gray-400 flex justify-between items-center print:mt-12">
+            <p>© 2025 Study Karte System - Focus on your goals.</p>
+            <p className="font-mono uppercase">Reference: SK-{Math.random().toString(36).substr(2, 5).toUpperCase()}</p>
+          </footer>
+        </div>
+
+        {/* 【印刷ボタン】 スマホでも押しやすいサイズ */}
+        <div className="flex justify-center pb-12 print:hidden">
+          <Button 
+            onClick={() => window.print()} 
+            className="gap-2 px-10 py-7 text-lg shadow-lg hover:shadow-xl transition-all bg-black hover:bg-gray-800 rounded-full"
+          >
+            <Printer className="w-6 h-6" /> カルテを印刷する
+          </Button>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
