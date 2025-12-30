@@ -17,9 +17,11 @@ export default function StudyKarteApp() {
   const [activeTab, setActiveTab] = useState<'karte' | 'analysis' | 'settings'>('karte');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // 状態管理
   const [materials, setMaterials] = useState<Material[]>([
     { id: '1', name: "Material 1", totalPages: 100, currentPage: 0, dailyPace: 5 }
   ]);
+  const [fallCount, setFallCount] = useState(1); // FALL-NR. の管理
   const [inputNote, setInputNote] = useState("");
   const [storedReportNote, setStoredReportNote] = useState("");
   const [aiExplanations, setAiExplanations] = useState<string[]>([]);
@@ -28,19 +30,22 @@ export default function StudyKarteApp() {
 
   useEffect(() => {
     setMounted(true);
-    const m = localStorage.getItem("karte_final_v13");
+    const m = localStorage.getItem("karte_final_v14");
     if (m) setMaterials(JSON.parse(m));
-    const n = localStorage.getItem("note_final_v13");
+    const n = localStorage.getItem("note_final_v14");
     if (n) setStoredReportNote(n);
-    const a = localStorage.getItem("ai_final_v13");
+    const a = localStorage.getItem("ai_final_v14");
     if (a) setAiExplanations(JSON.parse(a));
+    const c = localStorage.getItem("fall_count_v14");
+    if (c) setFallCount(Number(c));
   }, []);
 
-  const saveAllData = (updatedMaterials?: Material[]) => {
+  const saveAllData = (updatedMaterials?: Material[], nextFallCount?: number) => {
     const dataToSave = updatedMaterials || materials;
-    localStorage.setItem("karte_final_v13", JSON.stringify(dataToSave));
-    localStorage.setItem("note_final_v13", storedReportNote);
-    localStorage.setItem("ai_final_v13", JSON.stringify(aiExplanations));
+    localStorage.setItem("karte_final_v14", JSON.stringify(dataToSave));
+    localStorage.setItem("note_final_v14", storedReportNote);
+    localStorage.setItem("ai_final_v14", JSON.stringify(aiExplanations));
+    localStorage.setItem("fall_count_v14", String(nextFallCount || fallCount));
   };
 
   if (!mounted) return null;
@@ -62,12 +67,17 @@ export default function StudyKarteApp() {
         本日（${today}）学習した範囲を分析し、以下を出力してください。
         ● [復習予定日: 〇月〇日] / [復習範囲: p.〇-〇]
         要点: [簡潔な解説]
-        復習日は今日から1日後、3日後、7日後を割り当ててください。
       `;
       const result = await model.generateContent(selectedImage ? [prompt, { inlineData: { data: selectedImage.split(",")[1], mimeType: "image/jpeg" } }] : [prompt]);
+      
       setAiExplanations((await result.response).text().split('\n').filter(l => l.trim().startsWith('●') || l.trim().startsWith('要点')));
       setStoredReportNote(inputNote);
-      saveAllData(); 
+      
+      // 分析が完了したときに、FALL-NR. をインクリメントして保存
+      const nextCount = fallCount + 1;
+      setFallCount(nextCount);
+      saveAllData(materials, nextCount);
+      
       setActiveTab('karte');
     } catch (e) { alert("Analyse-Fehler."); } finally { setIsAnalyzing(false); }
   };
@@ -84,21 +94,22 @@ export default function StudyKarteApp() {
 
       <main className="max-w-4xl mx-auto p-4 md:p-10 pb-32 print:p-0">
         
-        {/* --- KARTE (学習カルテ) --- */}
+        {/* --- KARTE --- */}
         {activeTab === 'karte' && (
           <div className="bg-white border border-slate-200 p-10 md:p-16 print:border-none print:p-0 min-h-[290mm] animate-in fade-in duration-700">
             <header className="flex justify-between items-end border-b-2 border-slate-950 pb-6 mb-12">
               <div className="space-y-0.5">
-                <p className="text-[9px] font-mono text-slate-400 uppercase tracking-tighter">ID: {new Date().getTime().toString().slice(-4)}</p>
+                {/* IDから FALL-NR. に変更し、累積カウントを表示 */}
+                <p className="text-[10px] font-mono text-slate-400 uppercase tracking-tighter">FALL-NR. {fallCount.toString().padStart(4, '0')}</p>
                 <h1 className="text-xl font-bold tracking-[0.3em] uppercase not-italic text-slate-950">学習カルテ</h1>
               </div>
-              <div className="text-right text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">
+              <div className="text-right text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold leading-tight">
                 Täglicher Lernbericht <br /> {new Date().toLocaleDateString('de-DE')}
               </div>
             </header>
 
             <div className="space-y-12">
-              {/* ZIEL (今日の計画) */}
+              {/* Ziel */}
               <section className="space-y-8">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-950 border-b border-slate-100 pb-2">Ziel (Heutige Planung)</h3>
                 <div className="grid grid-cols-1 gap-10 pl-6 border-l-2 border-slate-950">
@@ -117,7 +128,7 @@ export default function StudyKarteApp() {
                 </div>
               </section>
 
-              {/* Rückblick (昨日の気づき) */}
+              {/* Rückblick */}
               <section className="space-y-4">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400 border-b border-slate-50 pb-1">Rückblick von gestern</h3>
                 <div className="text-[12px] leading-relaxed italic text-slate-700 whitespace-pre-wrap pl-6 border-l border-slate-50 min-h-[100px]">
@@ -140,12 +151,12 @@ export default function StudyKarteApp() {
           </div>
         )}
 
-        {/* --- ANALYSIS (記録・分析) --- */}
+        {/* --- ANALYSIS --- */}
         {activeTab === 'analysis' && (
           <div className="space-y-10 animate-in slide-in-from-bottom-2 duration-500 font-sans">
             <h2 className="text-[10px] font-bold text-slate-300 uppercase tracking-widest border-b pb-2">Dokumentation ＆ Analyse</h2>
             <section className="bg-white border border-slate-200 p-8 md:p-12 space-y-12 shadow-sm">
-              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-100 h-64 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-all rounded-sm">
+              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-100 h-64 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-all rounded-sm overflow-hidden">
                 {selectedImage ? <img src={selectedImage} alt="Preview" className="h-full object-contain p-2" /> : <p className="text-[9px] text-slate-300 uppercase font-bold text-center tracking-widest">Screenshot hochladen</p>}
                 <input type="file" ref={fileInputRef} onChange={(e) => { const f=e.target.files?.[0]; if(f){ const r=new FileReader(); r.onloadend=()=>setSelectedImage(r.result as string); r.readAsDataURL(f); } }} className="hidden" accept="image/*" />
               </div>
@@ -155,7 +166,7 @@ export default function StudyKarteApp() {
                   <div key={m.id} className="space-y-4 bg-slate-50/50 p-6 border border-slate-100">
                     <div className="flex justify-between items-center">
                       <span className="text-[11px] font-bold uppercase tracking-wider">{m.name}</span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 font-mono">
                         <input type="number" value={m.currentPage} onChange={(e) => updateMaterial(m.id, 'currentPage', Number(e.target.value))} className="w-16 bg-white border border-slate-200 text-center font-bold text-xs p-1 outline-none" />
                         <span className="text-[9px] text-slate-300">/ {m.totalPages}</span>
                       </div>
@@ -179,13 +190,13 @@ export default function StudyKarteApp() {
           <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500 font-sans">
             <header className="border-b border-slate-100 pb-2 flex justify-between items-end">
                <h2 className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Setup</h2>
-               <button onClick={() => { saveAllData(); alert("Gespeichert."); }} className="bg-slate-900 text-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-black">
+               <button onClick={() => { saveAllData(); alert("Gespeichert."); }} className="bg-slate-900 text-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all">
                  <Save className="w-3 h-3 inline mr-2" /> Speichern
                </button>
             </header>
             <div className="grid grid-cols-1 gap-6">
               {materials.map((m, idx) => (
-                <div key={m.id} className="bg-white border border-slate-200 p-10 flex flex-col gap-8 shadow-sm">
+                <div key={m.id} className="bg-white border border-slate-200 p-10 flex flex-col gap-8 shadow-sm relative">
                   <div className="flex justify-between items-center border-b border-slate-50 pb-4">
                     <div className="flex-grow">
                       <span className="text-[9px] font-mono text-slate-300 uppercase">Material 0{idx+1}</span>
@@ -212,7 +223,7 @@ export default function StudyKarteApp() {
 
       </main>
 
-      <div className="fixed bottom-10 right-10 print:hidden">
+      <div className="fixed bottom-10 right-10 print:hidden flex flex-col gap-4">
         <button onClick={() => window.print()} className="bg-white border border-slate-200 p-5 rounded-full shadow-2xl text-slate-950"><Printer className="w-5 h-5" /></button>
       </div>
     </div>
