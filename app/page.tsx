@@ -211,70 +211,70 @@ const runAiAnalysis = async () => {
 
             <div className="space-y-12">
               {reviewPlans.filter(rp => rp.date === new Intl.DateTimeFormat('sv-SE').format(new Date())).length > 0 && (
-    <section className="p-6 bg-red-50/50 border-l-4 border-red-950 animate-in fade-in slide-in-from-top duration-700">
-      <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-950 mb-3 font-sans flex items-center gap-2">
-        <Bell className="w-3 h-3" /> Dringende Wiederholung (今日の復習指示)
-      </h3>
-      <div className="space-y-2">
-        {reviewPlans.filter(rp => rp.date === new Intl.DateTimeFormat('sv-SE').format(new Date())).map(rp => (
-          <p key={rp.id} className="text-[12px] font-bold text-slate-900 leading-relaxed">{rp.content}</p>
-        ))}
-      </div>
-    </section>
-  )}
+            <section className="p-6 bg-red-50/50 border-l-4 border-red-950 animate-in fade-in slide-in-from-top duration-700">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-950 mb-3 font-sans flex items-center gap-2">
+                <Bell className="w-3 h-3" /> Dringende Wiederholung (今日の復習指示)
+              </h3>
+              <div className="space-y-2">
+                {reviewPlans.filter(rp => rp.date === new Intl.DateTimeFormat('sv-SE').format(new Date())).map(rp => (
+                  <p key={rp.id} className="text-[12px] font-bold text-slate-900 leading-relaxed">{rp.content}</p>
+                ))}
+              </div>
+            </section>
+          )}
 
-              <section className="space-y-8">
-                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-950 border-b border-slate-100 pb-2 font-sans">Ziel (Heutige Planung)</h3>
-                <div className="grid grid-cols-1 gap-8 pl-6 border-l border-slate-200">
-                  {materials.map((m, idx) => {
-                    const dailyGoal = calculateDailyPace(m); 
-                    return (
-                      <div key={m.id} className="group">
-                        {/* 教材ラベル */}
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <span className="w-3.5 h-3.5 flex items-center justify-center border border-slate-300 rounded-full text-[7px] font-mono text-slate-400">0{idx + 1}</span>
-                          {m.name}
-                        </p>
-                        
-                        {/* 数値表示セクション：タイプライター風 */}
-                        <div className="flex items-baseline gap-6 text-slate-700">
-                          {/* 現在地点 */}
-                          <div className="flex flex-col">
-                            <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Current Position</span>
-                            <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
-                              <span className="text-[10px] text-slate-300 font-mono">p.</span>
-                              <span className="text-xl font-mono tracking-tighter w-12 text-center">
-                                {m.currentPage + 1}
-                              </span>
-                            </div>
-                          </div>
-              
-                          {/* 矢印アイコン */}
-                          <div className="text-slate-200 self-end pb-2 font-thin text-xl">→</div>
-              
-                          {/* 目標地点 */}
-                          <div className="flex flex-col">
-                            <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Daily Target</span>
-                            <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
-                              <span className="text-[10px] text-slate-400 font-mono">p.</span>
-                              <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-900 font-bold">
-                                {Math.min(m.totalPages, m.currentPage + dailyGoal)}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {/* ペース表示 */}
-                          <div className="ml-2 self-end pb-2">
-                             <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">
-                               ( Pace: +{dailyGoal} )
-                             </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+      <section className="space-y-8">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-950 border-b border-slate-100 pb-2 font-sans">Ziel (Heutige Planung)</h3>
+        <div className="grid grid-cols-1 gap-8 pl-6 border-l border-slate-200">
+          {materials.map((m, idx) => {
+            const dailyGoal = calculateDailyPace(m); 
+            return (
+              <div key={m.id} className="group">
+                {/* 教材ラベル：01, 02... */}
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 font-sans">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center border border-slate-300 rounded-full text-[7px] font-mono text-slate-400">0{idx + 1}</span>
+                  {m.name}
+                </p>
+                
+                {/* 数値表示：タイプライター風 */}
+                <div className="flex items-baseline gap-6 text-slate-700">
+                  {/* 現在地点 (Aktuell) */}
+                  <div className="flex flex-col">
+                    <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Aktueller Stand</span>
+                    <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+                      <span className="text-[10px] text-slate-300 font-mono italic">p.</span>
+                      <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-500">
+                        {m.currentPage + 1}
+                      </span>
+                    </div>
+                  </div>
+      
+                  {/* 矢印 */}
+                  <div className="text-slate-200 self-end pb-2 font-thin text-xl">→</div>
+      
+                  {/* 目標地点 (Ziel) */}
+                  <div className="flex flex-col">
+                    <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Tagesziel</span>
+                    <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+                      <span className="text-[10px] text-slate-400 font-mono italic">p.</span>
+                      <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-900 font-bold">
+                        {Math.min(m.totalPages, m.currentPage + dailyGoal)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* ペース表示 (Tempo) */}
+                  <div className="ml-2 self-end pb-2">
+                     <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">
+                       ( Tempo: +{dailyGoal} )
+                     </span>
+                  </div>
                 </div>
-              </section>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
               <section className="space-y-4">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400 border-b border-slate-50 pb-1 font-sans">Rückblick von gestern</h3>
