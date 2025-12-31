@@ -222,21 +222,54 @@ const runAiAnalysis = async () => {
       </div>
     </section>
   )}
+
               <section className="space-y-8">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-950 border-b border-slate-100 pb-2 font-sans">Ziel (Heutige Planung)</h3>
-                <div className="grid grid-cols-1 gap-10 pl-6 border-l-2 border-slate-950">
+                <div className="grid grid-cols-1 gap-8 pl-6 border-l border-slate-200">
                   {materials.map((m, idx) => {
                     const dailyGoal = calculateDailyPace(m); 
                     return (
-                      <div key={m.id} className="space-y-3">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                          <span className="bg-slate-950 text-white w-4 h-4 flex items-center justify-center rounded-full text-[8px] font-sans">{idx + 1}</span>
+                      <div key={m.id} className="group">
+                        {/* 教材ラベル */}
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 flex items-center justify-center border border-slate-300 rounded-full text-[7px] font-mono text-slate-400">0{idx + 1}</span>
                           {m.name}
                         </p>
-                        <p className="text-2xl font-black tracking-tight leading-none text-slate-950 uppercase">
-                          SEITE {m.currentPage + 1} <br /> 
-                          <span className="text-slate-300 text-sm font-sans">BIS</span> {Math.min(m.totalPages, m.currentPage + dailyGoal)}
-                        </p>
+                        
+                        {/* 数値表示セクション：タイプライター風 */}
+                        <div className="flex items-baseline gap-6 text-slate-700">
+                          {/* 現在地点 */}
+                          <div className="flex flex-col">
+                            <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Current Position</span>
+                            <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+                              <span className="text-[10px] text-slate-300 font-mono">p.</span>
+                              <span className="text-xl font-mono tracking-tighter w-12 text-center">
+                                {m.currentPage + 1}
+                              </span>
+                            </div>
+                          </div>
+              
+                          {/* 矢印アイコン */}
+                          <div className="text-slate-200 self-end pb-2 font-thin text-xl">→</div>
+              
+                          {/* 目標地点 */}
+                          <div className="flex flex-col">
+                            <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Daily Target</span>
+                            <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+                              <span className="text-[10px] text-slate-400 font-mono">p.</span>
+                              <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-900 font-bold">
+                                {Math.min(m.totalPages, m.currentPage + dailyGoal)}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* ペース表示 */}
+                          <div className="ml-2 self-end pb-2">
+                             <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">
+                               ( Pace: +{dailyGoal} )
+                             </span>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
