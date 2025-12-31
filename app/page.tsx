@@ -34,6 +34,7 @@ export default function StudyKarteApp() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reviewPlans, setReviewPlans] = useState<ReviewPlan[]>([]);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null); 
 
   // 初回読み込み
   useEffect(() => {
@@ -80,16 +81,28 @@ export default function StudyKarteApp() {
     // ★ ここまで追加
   }, []);
 
-  // データ保存用
+// --- 復習予定を更新する関数 ---
+  const updateReviewPlan = (id: string, field: keyof ReviewPlan, value: string) => {
+    const updated = reviewPlans.map(rp => rp.id === id ? { ...rp, [field]: value } : rp);
+    setReviewPlans(updated);
+    // 変更したら即保存
+    saveAllData(materials, fallCount, updated);
+  };
+
+  // --- 全データを保存する関数 ---
   const saveAllData = (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
-  const dataToSave = updatedMaterials || materials;
-  const reviewsToSave = updatedReviews || reviewPlans; // ★追加
-  localStorage.setItem("karte_final_v15", JSON.stringify(dataToSave));
-  localStorage.setItem("note_final_v15", storedReportNote);
-  localStorage.setItem("ai_final_v15", JSON.stringify(aiExplanations));
-  localStorage.setItem("fall_count_v15", String(nextFallCount || fallCount));
-  localStorage.setItem("review_plans_v1", JSON.stringify(reviewsToSave)); // ★追加
-};
+    const dataToSave = updatedMaterials || materials;
+    const reviewsToSave = updatedReviews || reviewPlans;
+    localStorage.setItem("karte_final_v15", JSON.stringify(dataToSave));
+    localStorage.setItem("note_final_v15", storedReportNote);
+    localStorage.setItem("ai_final_v15", JSON.stringify(aiExplanations));
+    localStorage.setItem("fall_count_v15", String(nextFallCount || fallCount));
+    localStorage.setItem("review_plans_v1", JSON.stringify(reviewsToSave));
+  };
+
+
+
+  
 
   // 1日あたりの勉強量を計算するロジック
   const calculateDailyPace = (m: Material) => {
@@ -327,29 +340,31 @@ const runAiAnalysis = async () => {
           </div>
         )}
 
-        {activeTab === 'settings' && (
-          <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
-           <header className="border-b border-slate-100 pb-2 flex justify-between items-end text-[10px] font-bold text-slate-300 uppercase tracking-widest font-sans">
-             <span>Setup</span>
-             <div className="flex gap-4 items-center">
-               <button 
-                 onClick={() => {
-                   Notification.requestPermission().then(permission => {
-                     if (permission === "granted") {
-                       alert("Benachrichtigung aktiviert.");
-                     }
-                   });
-                 }}
-                 className="text-slate-300 hover:text-slate-950 transition-colors"
-                 title="Notifications"
-               >
-                 <Bell className="w-4 h-4" />
-               </button>
-               <button onClick={() => { saveAllData(); alert("Gespeichert."); }} className="bg-slate-900 text-white px-4 py-2 hover:bg-black font-sans">
-                 <Save className="w-3 h-3 inline mr-2" /> Speichern
-               </button>
-             </div>
-          </header>
+      {activeTab === 'settings' && (
+          <div className="space-y-12 animate-in slide-in-from-bottom-2 duration-500">
+            <header className="border-b border-slate-100 pb-2 flex justify-between items-end text-[10px] font-bold text-slate-300 uppercase tracking-widest font-sans">
+              <span>Setup</span>
+              <div className="flex gap-4 items-center">
+                <button 
+                  onClick={() => {
+                    Notification.requestPermission().then(permission => {
+                      if (permission === "granted") {
+                        alert("Benachrichtigung aktiviert.");
+                      }
+                    });
+                  }}
+                  className="text-slate-300 hover:text-slate-950 transition-colors"
+                  title="Notifications"
+                >
+                  <Bell className="w-4 h-4" />
+                </button>
+                <button onClick={() => { saveAllData(); alert("Gespeichert."); }} className="bg-slate-900 text-white px-4 py-2 hover:bg-black font-sans">
+                  <Save className="w-3 h-3 inline mr-2" /> Speichern
+                </button>
+              </div>
+            </header>
+
+            {/* 教材リスト */}
             <div className="grid grid-cols-1 gap-6 font-sans">
               {materials.map((m, idx) => (
                 <div key={m.id} className="bg-white border border-slate-200 p-10 flex flex-col gap-8 shadow-sm">
@@ -376,11 +391,52 @@ const runAiAnalysis = async () => {
               ))}
               <button onClick={() => setMaterials([...materials, { id: Date.now().toString(), name: "Material", totalPages: 100, currentPage: 0, targetDate: "2025-12-31" }])} className="w-full py-4 border-2 border-dashed border-slate-200 text-slate-300 text-[10px] font-bold uppercase hover:border-slate-950 font-sans transition-all">+ Hinzufügen</button>
             </div>
+
+            {/* 復習予定管理セクション */}
+            <div className="mt-20 space-y-8">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400 border-b border-slate-100 pb-2 font-sans">
+                Wiederholungsplan (復習予定管理)
+              </h3>
+              
+              <div className="space-y-4">
+                {reviewPlans.length === 0 ? (
+                  <p className="text-[10px] text-slate-300 italic font-sans text-center py-10">Keine geplanten Wiederholungen.</p>
+                ) : (
+                  reviewPlans.sort((a,b) => a.date.localeCompare(b.date)).map((rp) => (
+                    <div key={rp.id} className="bg-white border border-slate-100 p-4 flex flex-col md:flex-row gap-4 items-start md:items-center shadow-sm">
+                      <input 
+                        type="date" 
+                        value={rp.date} 
+                        onChange={(e) => updateReviewPlan(rp.id, 'date', e.target.value)}
+                        className="text-[11px] font-mono bg-slate-50 border-none outline-none p-1 text-slate-500 focus:bg-white focus:ring-1 ring-slate-200 transition-all"
+                      />
+                      <input 
+                        type="text" 
+                        value={rp.content} 
+                        onChange={(e) => updateReviewPlan(rp.id, 'content', e.target.value)}
+                        className="flex-grow text-[11px] font-mono text-slate-700 border-b border-transparent focus:border-slate-200 outline-none p-1 w-full"
+                        placeholder="Wiederholungsinhalt..."
+                      />
+                      <button 
+                        onClick={() => {
+                          const updated = reviewPlans.filter(item => item.id !== rp.id);
+                          setReviewPlans(updated);
+                          saveAllData(materials, fallCount, updated);
+                        }} 
+                        className="text-slate-200 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         )}
-
       </main>
 
+      {/* 印刷ボタン */}
       <div className="fixed bottom-10 right-10 print:hidden">
         <button onClick={() => window.print()} className="bg-white border border-slate-200 p-5 rounded-full shadow-2xl text-slate-950"><Printer className="w-5 h-5" /></button>
       </div>
