@@ -11,6 +11,12 @@ interface Material {
   currentPage: number;
   targetDate: string;
 }
+interface ReviewPlan {
+  id: string;
+  date: string;    // "2026-01-05" 形式
+  content: string; // "p.20-25の復習" など
+}
+
 
 export default function StudyKarteApp() {
   const [mounted, setMounted] = useState(false);
@@ -27,9 +33,12 @@ export default function StudyKarteApp() {
   const [aiExplanations, setAiExplanations] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [reviewPlans, setReviewPlans] = useState<ReviewPlan[]>([]);
 
   // 初回読み込み
   useEffect(() => {
+    const r = localStorage.getItem("review_plans_v1");
+    if (r) setReviewPlans(JSON.parse(r));
     setMounted(true);
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(() => {
@@ -43,7 +52,6 @@ export default function StudyKarteApp() {
     const a = localStorage.getItem("ai_final_v15");
     if (a) setAiExplanations(JSON.parse(a));
     const c = localStorage.getItem("fall_count_v15");
-    if (c) setFallCount(Number(c));
     if (c) setFallCount(Number(c));
     
     // ★ ここから追加：毎朝8時の通知チェック
@@ -73,13 +81,15 @@ export default function StudyKarteApp() {
   }, []);
 
   // データ保存用
-  const saveAllData = (updatedMaterials?: Material[], nextFallCount?: number) => {
-    const dataToSave = updatedMaterials || materials;
-    localStorage.setItem("karte_final_v15", JSON.stringify(dataToSave));
-    localStorage.setItem("note_final_v15", storedReportNote);
-    localStorage.setItem("ai_final_v15", JSON.stringify(aiExplanations));
-    localStorage.setItem("fall_count_v15", String(nextFallCount || fallCount));
-  };
+  const saveAllData = (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
+  const dataToSave = updatedMaterials || materials;
+  const reviewsToSave = updatedReviews || reviewPlans; // ★追加
+  localStorage.setItem("karte_final_v15", JSON.stringify(dataToSave));
+  localStorage.setItem("note_final_v15", storedReportNote);
+  localStorage.setItem("ai_final_v15", JSON.stringify(aiExplanations));
+  localStorage.setItem("fall_count_v15", String(nextFallCount || fallCount));
+  localStorage.setItem("review_plans_v1", JSON.stringify(reviewsToSave)); // ★追加
+};
 
   // 1日あたりの勉強量を計算するロジック
   const calculateDailyPace = (m: Material) => {
@@ -99,26 +109,81 @@ export default function StudyKarteApp() {
     setMaterials(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
 
-  const runAiAnalysis = async () => {
+const runAiAnalysis = async () => {
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) return alert("Gemini APIキーを設定してください。");
     setIsAnalyzing(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const today = new Date().toLocaleDateString('ja-JP');
-      const prompt = `エビングハウスの忘却曲線に基づき、長期記憶を最大化する「復習処方箋」を日本語で作成してください。本日（${today}）学習した範囲を分析し、以下を出力してください。 ● [復習予定日: 〇月〇日] / [復習範囲: p.〇-〇] 要点: [簡潔な解説]`;
-      const result = await model.generateContent(selectedImage ? [prompt, { inlineData: { data: selectedImage.split(",")[1], mimeType: "image/jpeg" } }] : [prompt]);
       
-      setAiExplanations((await result.response).text().split('\n').filter(l => l.trim().startsWith('●') || l.trim().startsWith('要点')));
-      setStoredReportNote(inputNote);
+      const prompt = `
+        あなたは優秀な学習コーチです。アップロードされた学習内容の画像と学習者のメモ（${inputNote}）を統合的に分析してください。
+
+        【タスク1：学習要約 (Rückblick)】
+        1. 画像から「具体的にどのような項目・概念を学んだか」を特定してください。
+        2. 学習者のメモから「どこを重点的に意識したか」「どこに苦戦したか」などを読み取ってください。
+        3. 上記を統合し、昨日学んだことの核心を「[SUMMARY]」というタグを付けて、日本語で客観的に記述してください。
+
+        【タスク2：復習処方箋 (Analyse)】
+        エビングハウスの忘却曲線に基づき、長期記憶を最大化する復習計画を作成してください。
+        ● [復習予定日: 〇月〇日] / [復習範囲: p.〇-〇] 
+        要点: [画像とメモに基づいた、具体的な復習の着眼点]
+      `;
+
+      const result = await model.generateContent(
+        selectedImage 
+          ? [prompt, { inlineData: { data: selectedImage.split(",")[1], mimeType: "image/jpeg" } }] 
+          : [prompt]
+      );
       
+      const fullResponse = (await result.response).text();
+      const lines = fullResponse.split('\n');
+
+      // 1. 要約の抽出
+      const summaryLine = lines.find(l => l.includes('[SUMMARY]'));
+      const summaryText = summaryLine ? summaryLine.replace('[SUMMARY]', '').trim() : inputNote;
+      setStoredReportNote(summaryText);
+
+      // 2. 復習処方箋の抽出
+      const prescriptionLines = lines.filter(l => l.trim().startsWith('●') || l.trim().startsWith('要点'));
+      setAiExplanations(prescriptionLines);
+
+      // --- 復習プランの自動保存ロジック ---
+      const newReviews: ReviewPlan[] = [...reviewPlans];
+      prescriptionLines.forEach(line => {
+        const dateMatch = line.match(/(\d{1,2})月(\d{1,2})日/);
+        if (dateMatch) {
+          const month = parseInt(dateMatch[1]);
+          const day = parseInt(dateMatch[2]);
+          const now = new Date();
+          let year = now.getFullYear();
+          if (month < now.getMonth() + 1) year += 1; // 年跨ぎ対応
+          
+          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          
+          newReviews.push({
+            id: Date.now().toString() + Math.random(),
+            date: dateStr,
+            content: line
+          });
+        }
+      });
+
       const nextCount = fallCount + 1;
       setFallCount(nextCount);
-      saveAllData(materials, nextCount);
+      setReviewPlans(newReviews);
+      saveAllData(materials, nextCount, newReviews);
       
       setActiveTab('karte');
-    } catch (e) { alert("Analyse-Fehler."); } finally { setIsAnalyzing(false); }
+      setInputNote("");      
+      setSelectedImage(null); 
+    } catch (e) { 
+      console.error(e);
+      alert("Analyse-Fehler."); 
+    } finally { 
+      setIsAnalyzing(false); 
+    }
   };
 
   return (
@@ -145,6 +210,18 @@ export default function StudyKarteApp() {
             </header>
 
             <div className="space-y-12">
+              {reviewPlans.filter(rp => rp.date === new Intl.DateTimeFormat('sv-SE').format(new Date())).length > 0 && (
+    <section className="p-6 bg-red-50/50 border-l-4 border-red-950 animate-in fade-in slide-in-from-top duration-700">
+      <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-950 mb-3 font-sans flex items-center gap-2">
+        <Bell className="w-3 h-3" /> Dringende Wiederholung (今日の復習指示)
+      </h3>
+      <div className="space-y-2">
+        {reviewPlans.filter(rp => rp.date === new Intl.DateTimeFormat('sv-SE').format(new Date())).map(rp => (
+          <p key={rp.id} className="text-[12px] font-bold text-slate-900 leading-relaxed">{rp.content}</p>
+        ))}
+      </div>
+    </section>
+  )}
               <section className="space-y-8">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-950 border-b border-slate-100 pb-2 font-sans">Ziel (Heutige Planung)</h3>
                 <div className="grid grid-cols-1 gap-10 pl-6 border-l-2 border-slate-950">
