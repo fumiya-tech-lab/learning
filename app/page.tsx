@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Printer, Sparkles, Plus, Trash2, Upload, Save } from "lucide-react";
+import { Printer, Sparkles, Plus, Trash2, Upload, Save, Bell } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface Material {
@@ -31,6 +31,11 @@ export default function StudyKarteApp() {
   // 初回読み込み
   useEffect(() => {
     setMounted(true);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(() => {
+        console.log("Service Worker Registered");
+      });
+    }
     const m = localStorage.getItem("karte_final_v15");
     if (m) setMaterials(JSON.parse(m));
     const n = localStorage.getItem("note_final_v15");
@@ -39,6 +44,32 @@ export default function StudyKarteApp() {
     if (a) setAiExplanations(JSON.parse(a));
     const c = localStorage.getItem("fall_count_v15");
     if (c) setFallCount(Number(c));
+    if (c) setFallCount(Number(c));
+    
+    // ★ ここから追加：毎朝8時の通知チェック
+    const checkMorningNotification = () => {
+      const now = new Date();
+      // 8時台かつ通知許可がある場合
+      if (now.getHours() === 8 && Notification.permission === "granted") {
+        const lastNotify = localStorage.getItem("last_notify_date");
+        const todayStr = now.toDateString();
+        
+        if (lastNotify !== todayStr) {
+          new Notification("Guten Morgen", {
+            body: "今日の学習計画（Karte）を確認しましょう。",
+            badge: "/icons/icon-192x192.png", // アイコンパスは環境に合わせて調整
+            icon: "/icons/icon-192x192.png"
+          });
+          localStorage.setItem("last_notify_date", todayStr);
+        }
+      }
+    };
+
+    const notificationInterval = setInterval(checkMorningNotification, 1000 * 60 * 15); // 15分毎にチェック
+    
+    // クリーンアップ処理
+    return () => clearInterval(notificationInterval);
+    // ★ ここまで追加
   }, []);
 
   // データ保存用
@@ -188,12 +219,27 @@ export default function StudyKarteApp() {
 
         {activeTab === 'settings' && (
           <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
-            <header className="border-b border-slate-100 pb-2 flex justify-between items-end text-[10px] font-bold text-slate-300 uppercase tracking-widest font-sans">
-               <span>Setup</span>
+           <header className="border-b border-slate-100 pb-2 flex justify-between items-end text-[10px] font-bold text-slate-300 uppercase tracking-widest font-sans">
+             <span>Setup</span>
+             <div className="flex gap-4 items-center">
+               <button 
+                 onClick={() => {
+                   Notification.requestPermission().then(permission => {
+                     if (permission === "granted") {
+                       alert("Benachrichtigung aktiviert.");
+                     }
+                   });
+                 }}
+                 className="text-slate-300 hover:text-slate-950 transition-colors"
+                 title="Notifications"
+               >
+                 <Bell className="w-4 h-4" />
+               </button>
                <button onClick={() => { saveAllData(); alert("Gespeichert."); }} className="bg-slate-900 text-white px-4 py-2 hover:bg-black font-sans">
                  <Save className="w-3 h-3 inline mr-2" /> Speichern
                </button>
-            </header>
+             </div>
+          </header>
             <div className="grid grid-cols-1 gap-6 font-sans">
               {materials.map((m, idx) => (
                 <div key={m.id} className="bg-white border border-slate-200 p-10 flex flex-col gap-8 shadow-sm">
