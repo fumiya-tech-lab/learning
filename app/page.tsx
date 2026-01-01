@@ -229,9 +229,11 @@ export default function StudyKarteApp() {
         
         {activeTab === 'karte' && (
           <div className="bg-white border border-slate-200 p-10 md:p-16 print:border-none print:p-0 min-h-[290mm] animate-in fade-in duration-700">
-            <header className="flex justify-between items-end border-b-2 border-slate-950 pb-6 mb-12">
+            <header className="flex justify-between items-end border-b-2 border-slate-950 pb-3 mb-10">
               <div className="space-y-0.5">
-                <h1 className="text-xl font-bold tracking-[0.3em] uppercase text-slate-950">学習カルテ</h1>
+                <h1 className="text-2xl font-bold tracking-[0.2em] uppercase text-slate-950 font-serif italic">
+                  Lernprotokoll
+                </h1>
               </div>
               <div className="text-right text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold leading-tight">
                 FALL-NR. {fallCount.toString().padStart(4, '0')} <br /> 
