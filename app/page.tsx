@@ -66,7 +66,7 @@ export default function StudyKarteApp() {
         
         if (lastNotify !== todayStr) {
           new Notification("Guten Morgen", {
-            body: "今日の学習計画（Karte）を確認しましょう。",
+            body: "今日の学習カルテを確認しましょう。",
             badge: "/icons/icon-192x192.png", // アイコンパスは環境に合わせて調整
             icon: "/icons/icon-192x192.png"
           });
@@ -229,9 +229,9 @@ export default function StudyKarteApp() {
         
         {activeTab === 'karte' && (
           <div className="bg-white border border-slate-200 p-10 md:p-16 print:border-none print:p-0 min-h-[290mm] animate-in fade-in duration-700">
-            <header className="flex justify-between items-end border-b-2 border-slate-950 pb-3 mb-10">
+            <header className="flex justify-between items-end border-b-2 border-slate-950 pb-1 mb-10">
               <div className="space-y-0.5">
-                <h1 className="text-2xl font-bold tracking-[0.2em] uppercase text-slate-950 font-serif italic">
+                <h1 className="text-xl font-bold tracking-[0.2em] uppercase text-slate-950 font-mono">
                   Lernprotokoll
                 </h1>
               </div>
