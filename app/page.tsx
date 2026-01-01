@@ -38,36 +38,46 @@ export default function StudyKarteApp() {
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
   // 初回読み込み
-  useEffect(() => {
-    const r = localStorage.getItem("review_plans_v1");
-    if (r) setReviewPlans(JSON.parse(r));
-    setMounted(true);
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(() => {
-        console.log("Service Worker Registered");
-      });
-    }
-    const m = localStorage.getItem("karte_final_v15");
-    if (m) setMaterials(JSON.parse(m));
-    const n = localStorage.getItem("note_final_v15");
-    if (n) setStoredReportNote(n);
-    const a = localStorage.getItem("ai_final_v15");
-    if (a) setAiExplanations(JSON.parse(a));
-    const c = localStorage.getItem("fall_count_v15");
-    if (c) setFallCount(Number(c));
+useEffect(() => {
+    const loadFromServer = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/load");
+        const data = await res.json();
+        
+        // サーバーにデータがあれば、それぞれの状態にセットする
+        if (data.materials) {
+          setMaterials(data.materials);
+          setFallCount(data.fallCount || 1);
+          setReviewPlans(data.reviewPlans || []);
+          setStoredReportNote(data.storedReportNote || "");
+          setAiExplanations(data.aiExplanations || []);
+        }
+      } catch (e) {
+        console.error("サーバーからの読み込みに失敗しました:", e);
+      }
+      
+      setMounted(true);
+      
+      // サービスワーカーの登録（既存のもの）
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then(() => {
+          console.log("Service Worker Registered");
+        });
+      }
+    };
+
+    loadFromServer(); // サーバーから読み込み開始
     
-    // ★ ここから追加：毎朝8時の通知チェック
+    // ★ 毎朝8時の通知チェック（ここは既存のまま残します）
     const checkMorningNotification = () => {
       const now = new Date();
-      // 8時台かつ通知許可がある場合
       if (now.getHours() === 8 && Notification.permission === "granted") {
         const lastNotify = localStorage.getItem("last_notify_date");
         const todayStr = now.toDateString();
-        
         if (lastNotify !== todayStr) {
           new Notification("Guten Morgen", {
             body: "今日の学習カルテを確認しましょう。",
-            badge: "/icons/icon-192x192.png", // アイコンパスは環境に合わせて調整
+            badge: "/icons/icon-192x192.png",
             icon: "/icons/icon-192x192.png"
           });
           localStorage.setItem("last_notify_date", todayStr);
@@ -75,11 +85,8 @@ export default function StudyKarteApp() {
       }
     };
 
-    const notificationInterval = setInterval(checkMorningNotification, 1000 * 60 * 15); // 15分毎にチェック
-    
-    // クリーンアップ処理
+    const notificationInterval = setInterval(checkMorningNotification, 1000 * 60 * 15);
     return () => clearInterval(notificationInterval);
-    // ★ ここまで追加
   }, []);
 
 // --- 復習予定を更新する関数 ---
@@ -91,18 +98,31 @@ export default function StudyKarteApp() {
   };
 
   // --- 全データを保存する関数 ---
-  const saveAllData = (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
-    const dataToSave = updatedMaterials || materials;
-    const reviewsToSave = updatedReviews || reviewPlans;
-    localStorage.setItem("karte_final_v15", JSON.stringify(dataToSave));
-    localStorage.setItem("note_final_v15", storedReportNote);
-    localStorage.setItem("ai_final_v15", JSON.stringify(aiExplanations));
-    localStorage.setItem("fall_count_v15", String(nextFallCount || fallCount));
-    localStorage.setItem("review_plans_v1", JSON.stringify(reviewsToSave));
+  // 98行目付近：ここから
+  const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
+    const dataToSave = {
+      materials: updatedMaterials || materials,
+      fallCount: nextFallCount || fallCount,
+      reviewPlans: updatedReviews || reviewPlans,
+      storedReportNote: storedReportNote,
+      aiExplanations: aiExplanations
+    };
+
+    try {
+      // サーバー（FastAPI）の /save エンドポイントへデータを送る
+      await fetch("http://127.0.0.1:8000/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSave),
+      });
+      console.log("サーバーへの保存が完了しました。");
+    } catch (e) {
+      console.error("サーバーへの保存に失敗しました:", e);
+    }
+
+    // 念のためブラウザ(localStorage)にもバックアップとして保存しておく
+    localStorage.setItem("karte_final_backup", JSON.stringify(dataToSave));
   };
-
-
-
   
 
   // 1日あたりの勉強量を計算するロジック
