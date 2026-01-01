@@ -41,7 +41,7 @@ export default function StudyKarteApp() {
 useEffect(() => {
     const loadFromServer = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/load");
+        const res = await fetch("http://192.168.1.200:8000/load");
         const data = await res.json();
         
         // サーバーにデータがあれば、それぞれの状態にセットする
@@ -110,7 +110,7 @@ useEffect(() => {
 
     try {
       // サーバー（FastAPI）の /save エンドポイントへデータを送る
-      await fetch("http://127.0.0.1:8000/save", {
+      await fetch("http://192.168.1.200:8000/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSave),
