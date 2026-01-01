@@ -10,6 +10,7 @@ interface Material {
   totalPages: number;
   currentPage: number;
   targetDate: string;
+  needsReview: boolean;
 }
 interface ReviewPlan {
   id: string;
@@ -23,9 +24,9 @@ export default function StudyKarteApp() {
   const [activeTab, setActiveTab] = useState<'karte' | 'analysis' | 'settings'>('karte');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // 状態管理 (targetDateに一本化)
+  // 状態管理
   const [materials, setMaterials] = useState<Material[]>([
-    { id: '1', name: "Material 1", totalPages: 100, currentPage: 0, targetDate: "2025-12-31" }
+    { id: '1', name: "Material 1", totalPages: 100, currentPage: 0, targetDate: "2025-12-31", needsReview: true }
   ]);
   const [fallCount, setFallCount] = useState(1);
   const [inputNote, setInputNote] = useState("");
@@ -34,7 +35,7 @@ export default function StudyKarteApp() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reviewPlans, setReviewPlans] = useState<ReviewPlan[]>([]);
-  const [editingReviewId, setEditingReviewId] = useState<string | null>(null); 
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
   // 初回読み込み
   useEffect(() => {
@@ -122,7 +123,8 @@ export default function StudyKarteApp() {
     setMaterials(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
 
-const runAiAnalysis = async () => {
+
+  const runAiAnalysis = async () => {
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) return alert("Gemini APIキーを設定してください。");
     setIsAnalyzing(true);
@@ -130,18 +132,28 @@ const runAiAnalysis = async () => {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
+      // 復習が必要な教材の名前をリストアップ
+      const reviewRequiredNames = materials
+        .filter(m => m.needsReview)
+        .map(m => m.name)
+        .join(", ");
+      
       const prompt = `
         あなたは優秀な学習コーチです。アップロードされた学習内容の画像と学習者のメモ（${inputNote}）を統合的に分析してください。
 
         【タスク1：学習要約 (Rückblick)】
-        1. 画像から「具体的にどのような項目・概念を学んだか」を特定してください。
-        2. 学習者のメモから「どこを重点的に意識したか」「どこに苦戦したか」などを読み取ってください。
-        3. 上記を統合し、昨日学んだことの核心を「[SUMMARY]」というタグを付けて、日本語で客観的に記述してください。
+        1. 画像から項目・概念を特定してください。
+        2. メモから苦戦した点を読み取ってください。
+        3. 日本語2〜3行で核心を記述し、冒頭に [SUMMARY] と付けてください。
 
         【タスク2：復習処方箋 (Analyse)】
-        エビングハウスの忘却曲線に基づき、長期記憶を最大化する復習計画を作成してください。
+        今回の学習範囲に、以下の「復習対象教材」が含まれている場合のみ復習計画を作成してください。
+        復習対象教材：[ ${reviewRequiredNames} ]
+
+        ※対象教材が含まれない場合は、[NO_REVIEW] とだけ出力してください。
+        ※対象の場合の形式：
         ● [復習予定日: 〇月〇日] / [復習範囲: p.〇-〇] 
-        要点: [画像とメモに基づいた、具体的な復習の着眼点]
+        要点: [復習の着眼点]
       `;
 
       const result = await model.generateContent(
@@ -158,31 +170,36 @@ const runAiAnalysis = async () => {
       const summaryText = summaryLine ? summaryLine.replace('[SUMMARY]', '').trim() : inputNote;
       setStoredReportNote(summaryText);
 
-      // 2. 復習処方箋の抽出
-      const prescriptionLines = lines.filter(l => l.trim().startsWith('●') || l.trim().startsWith('要点'));
-      setAiExplanations(prescriptionLines);
+      // 2. 復習処方箋の判定と抽出
+      let newReviews: ReviewPlan[] = [...reviewPlans];
 
-      // --- 復習プランの自動保存ロジック ---
-      const newReviews: ReviewPlan[] = [...reviewPlans];
-      prescriptionLines.forEach(line => {
-        const dateMatch = line.match(/(\d{1,2})月(\d{1,2})日/);
-        if (dateMatch) {
-          const month = parseInt(dateMatch[1]);
-          const day = parseInt(dateMatch[2]);
-          const now = new Date();
-          let year = now.getFullYear();
-          if (month < now.getMonth() + 1) year += 1; // 年跨ぎ対応
-          
-          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          
-          newReviews.push({
-            id: Date.now().toString() + Math.random(),
-            date: dateStr,
-            content: line
-          });
-        }
-      });
+      if (fullResponse.includes("[NO_REVIEW]")) {
+        setAiExplanations(["本日の学習範囲は復習予約の必要はありません。"]);
+      } else {
+        const prescriptionLines = lines.filter(l => l.trim().startsWith('●') || l.trim().startsWith('要点'));
+        setAiExplanations(prescriptionLines);
 
+        // 復習プランがある場合のみリストへ追加
+        prescriptionLines.forEach(line => {
+          const dateMatch = line.match(/(\d{1,2})月(\d{1,2})日/);
+          if (dateMatch) {
+            const month = parseInt(dateMatch[1]);
+            const day = parseInt(dateMatch[2]);
+            const now = new Date();
+            let year = now.getFullYear();
+            if (month < now.getMonth() + 1) year += 1;
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            
+            newReviews.push({
+              id: Date.now().toString() + Math.random(),
+              date: dateStr,
+              content: line
+            });
+          }
+        });
+      }
+
+      // 保存と状態更新（復習の有無に関わらず実行）
       const nextCount = fallCount + 1;
       setFallCount(nextCount);
       setReviewPlans(newReviews);
@@ -386,10 +403,23 @@ const runAiAnalysis = async () => {
                         className="w-full text-2xl font-black border-b border-slate-100 outline-none bg-transparent text-slate-900 font-sans" 
                       />
                     </div>
+                    <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={m.needsReview} 
+                        onChange={(e) => updateMaterial(m.id, 'needsReview', e.target.checked)}
+                        className="accent-slate-900"
+                      />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                        Wiederholung (復習対象)
+                      </span>
+                    </label>
+                  </div>
                   </div>
                 </div>
               ))}
-              <button onClick={() => setMaterials([...materials, { id: Date.now().toString(), name: "Material", totalPages: 100, currentPage: 0, targetDate: "2025-12-31" }])} className="w-full py-4 border-2 border-dashed border-slate-200 text-slate-300 text-[10px] font-bold uppercase hover:border-slate-950 font-sans transition-all">+ Hinzufügen</button>
+              <button onClick={() => setMaterials([...materials, { id: Date.now().toString(), name: "Material", totalPages: 100, currentPage: 0, targetDate: "2025-12-31", needsReview: true }])} className="w-full py-4 border-2 border-dashed border-slate-200 text-slate-300 text-[10px] font-bold uppercase hover:border-slate-950 font-sans transition-all">+ Hinzufügen</button>
             </div>
 
             {/* 復習予定管理セクション */}
