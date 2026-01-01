@@ -392,30 +392,40 @@ export default function StudyKarteApp() {
                     </div>
                     <button onClick={() => setMaterials(materials.filter(mat => mat.id !== m.id))} className="text-slate-200 hover:text-red-500 ml-4"><Trash2 className="w-5 h-5" /></button>
                   </div>
-                  <div className="grid grid-cols-2 gap-12 text-[9px] font-bold text-slate-300 uppercase tracking-widest font-sans">
-                    <div><label>Seiten gesamt</label><input type="number" value={m.totalPages} onChange={(e) => updateMaterial(m.id, 'totalPages', Number(e.target.value))} className="w-full text-2xl font-black border-b border-slate-100 outline-none text-slate-900 font-sans" /></div>
+                  {/* レイアウト修正：スマホでは1列(grid-cols-1)、PCでは2列(md:grid-cols-2) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 text-[9px] font-bold text-slate-300 uppercase tracking-widest font-sans">
                     <div>
-                      <label>Ziel-Datum</label>
+                      <label className="block mb-1">Seiten gesamt (全ページ数)</label>
+                      <input 
+                        type="number" 
+                        value={m.totalPages} 
+                        onChange={(e) => updateMaterial(m.id, 'totalPages', Number(e.target.value))} 
+                        className="w-full text-xl md:text-2xl font-black border-b border-slate-100 outline-none text-slate-900 font-sans bg-transparent" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1">Ziel-Datum (目標期限)</label>
                       <input 
                         type="date" 
                         value={m.targetDate} 
                         onChange={(e) => updateMaterial(m.id, 'targetDate', e.target.value)} 
-                        className="w-full text-2xl font-black border-b border-slate-100 outline-none bg-transparent text-slate-900 font-sans" 
+                        className="w-full text-xl md:text-2xl font-black border-b border-slate-100 outline-none bg-transparent text-slate-900 font-sans" 
                       />
                     </div>
-                    <div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={m.needsReview} 
-                        onChange={(e) => updateMaterial(m.id, 'needsReview', e.target.checked)}
-                        className="accent-slate-900"
-                      />
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                        Wiederholung (復習対象)
-                      </span>
-                    </label>
-                  </div>
+                    {/* 復習対象チェックボックス */}
+                    <div className="md:col-span-2 mt-2">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={m.needsReview} 
+                          onChange={(e) => updateMaterial(m.id, 'needsReview', e.target.checked)}
+                          className="w-4 h-4 accent-slate-900"
+                        />
+                        <span className="text-[10px] font-bold text-slate-400 group-hover:text-slate-950 transition-colors uppercase tracking-widest">
+                          Wiederholung (復習対象としてAI分析する)
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               ))}
