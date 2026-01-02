@@ -35,12 +35,12 @@ export default function StudyKarteApp() {
   const [reviewPlans, setReviewPlans] = useState<ReviewPlan[]>([]);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
-// 初回読み込み
+// --- 初回読み込みと通知設定 ---
   useEffect(() => {
     const loadFromServer = async () => {
       try {
         const res = await fetch("http://192.168.1.200:8000/load");
-        if (!res.ok) throw new Error("Network response was not ok");
+        if (!res.ok) throw new Error("Network Error");
         const data = await res.json();
         
         if (data.materials && data.materials.length > 0) {
@@ -59,15 +59,28 @@ export default function StudyKarteApp() {
       setMounted(true);
     };
 
-    loadFromServer(); 
+    loadFromServer();
 
-    // ★重要：トラブル防止のため、一旦サービスワーカーの登録をコメントアウトします
-    /*
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
-    }
-    */
-  }, []);
+    // 朝8時の通知チェック関数
+    const checkMorningNotification = () => {
+      if (typeof window === "undefined" || !("Notification" in window)) return;
+      const now = new Date();
+      if (now.getHours() === 8 && Notification.permission === "granted") {
+        const lastNotify = localStorage.getItem("last_notify_date");
+        const todayStr = now.toDateString();
+        if (lastNotify !== todayStr) {
+          new Notification("Guten Morgen", {
+            body: "今日の学習カルテを確認しましょう。",
+            icon: "/icons/icon-192x192.png"
+          });
+          localStorage.setItem("last_notify_date", todayStr);
+        }
+      }
+    };
+
+    const notificationInterval = setInterval(checkMorningNotification, 1000 * 60 * 15);
+    return () => clearInterval(notificationInterval);
+  }, []); 
   
 
 // --- 復習予定を更新する関数 ---
