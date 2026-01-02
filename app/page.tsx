@@ -98,8 +98,7 @@ useEffect(() => {
   };
 
   // --- 全データを保存する関数 ---
-  // 98行目付近：ここから
-  const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
+ const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
     const dataToSave = {
       materials: updatedMaterials || materials,
       fallCount: nextFallCount || fallCount,
@@ -109,18 +108,22 @@ useEffect(() => {
     };
 
     try {
-      // サーバー（FastAPI）の /save エンドポイントへデータを送る
-      await fetch("http://192.168.1.200:8000/save", {
+      const response = await fetch("http://192.168.1.200:8000/save", { // ここを /save に修正
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSave),
       });
-      console.log("サーバーへの保存が完了しました。");
+
+      if (response.ok) {
+        console.log("サーバーへの保存が完了しました。");
+      } else {
+        throw new Error("サーバー側で保存に失敗しました。");
+      }
     } catch (e) {
       console.error("サーバーへの保存に失敗しました:", e);
+      alert("通信エラーが発生しました。PCのサーバーが動いているか確認してください。");
     }
 
-    // 念のためブラウザ(localStorage)にもバックアップとして保存しておく
     localStorage.setItem("karte_final_backup", JSON.stringify(dataToSave));
   };
   
