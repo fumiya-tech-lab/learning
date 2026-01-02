@@ -25,9 +25,7 @@ export default function StudyKarteApp() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // 状態管理
-  const [materials, setMaterials] = useState<Material[]>([
-    { id: '1', name: "Material 1", totalPages: 100, currentPage: 0, targetDate: "2025-12-31", needsReview: true }
-  ]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [fallCount, setFallCount] = useState(1);
   const [inputNote, setInputNote] = useState("");
   const [storedReportNote, setStoredReportNote] = useState("");
@@ -37,38 +35,41 @@ export default function StudyKarteApp() {
   const [reviewPlans, setReviewPlans] = useState<ReviewPlan[]>([]);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
-  // 初回読み込み
-useEffect(() => {
+// 初回読み込み
+  useEffect(() => {
     const loadFromServer = async () => {
       try {
         const res = await fetch("http://192.168.1.200:8000/load");
         const data = await res.json();
         
-        // サーバーにデータがあれば、それぞれの状態にセットする
-        if (data.materials) {
+        if (data.materials && data.materials.length > 0) {
           setMaterials(data.materials);
           setFallCount(data.fallCount || 1);
           setReviewPlans(data.reviewPlans || []);
           setStoredReportNote(data.storedReportNote || "");
           setAiExplanations(data.aiExplanations || []);
+        } else {
+          setMaterials([{ id: '1', name: "学習用教材", totalPages: 100, currentPage: 0, targetDate: "2026-12-31", needsReview: true }]);
         }
       } catch (e) {
-        console.error("サーバーからの読み込みに失敗しました:", e);
+        console.error("読み込み失敗:", e);
+        setMaterials([{ id: '1', name: "サーバー接続エラー", totalPages: 100, currentPage: 0, targetDate: "2026-12-31", needsReview: true }]);
       }
-      
+      // データの準備がすべて終わってから「mounted」をtrueにする
       setMounted(true);
-      
-      // サービスワーカーの登録（既存のもの）
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').then(() => {
-          console.log("Service Worker Registered");
-        });
-      }
     };
 
-    loadFromServer(); // サーバーから読み込み開始
+    // サーバーから読み込み開始
+    loadFromServer(); 
     
-    // ★ 毎朝8時の通知チェック（ここは既存のまま残します）
+    // サービスワーカーの登録
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(() => {
+        console.log("Service Worker Registered");
+      });
+    }
+    
+    // 毎朝8時の通知チェック
     const checkMorningNotification = () => {
       const now = new Date();
       if (now.getHours() === 8 && Notification.permission === "granted") {
