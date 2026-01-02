@@ -68,28 +68,7 @@ export default function StudyKarteApp() {
     }
     */
   }, []);
-    }
-    
-    // 毎朝8時の通知チェック
-    const checkMorningNotification = () => {
-      const now = new Date();
-      if (now.getHours() === 8 && Notification.permission === "granted") {
-        const lastNotify = localStorage.getItem("last_notify_date");
-        const todayStr = now.toDateString();
-        if (lastNotify !== todayStr) {
-          new Notification("Guten Morgen", {
-            body: "今日の学習カルテを確認しましょう。",
-            badge: "/icons/icon-192x192.png",
-            icon: "/icons/icon-192x192.png"
-          });
-          localStorage.setItem("last_notify_date", todayStr);
-        }
-      }
-    };
-
-    const notificationInterval = setInterval(checkMorningNotification, 1000 * 60 * 15);
-    return () => clearInterval(notificationInterval);
-  }, []);
+  
 
 // --- 復習予定を更新する関数 ---
   const updateReviewPlan = (id: string, field: keyof ReviewPlan, value: string) => {
