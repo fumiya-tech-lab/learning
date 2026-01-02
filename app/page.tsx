@@ -40,6 +40,7 @@ export default function StudyKarteApp() {
     const loadFromServer = async () => {
       try {
         const res = await fetch("http://192.168.1.200:8000/load");
+        if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
         
         if (data.materials && data.materials.length > 0) {
@@ -55,18 +56,18 @@ export default function StudyKarteApp() {
         console.error("読み込み失敗:", e);
         setMaterials([{ id: '1', name: "サーバー接続エラー", totalPages: 100, currentPage: 0, targetDate: "2026-12-31", needsReview: true }]);
       }
-      // データの準備がすべて終わってから「mounted」をtrueにする
       setMounted(true);
     };
 
-    // サーバーから読み込み開始
     loadFromServer(); 
-    
-    // サービスワーカーの登録
+
+    // ★重要：トラブル防止のため、一旦サービスワーカーの登録をコメントアウトします
+    /*
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(() => {
-        console.log("Service Worker Registered");
-      });
+      navigator.serviceWorker.register('/sw.js');
+    }
+    */
+  }, []);
     }
     
     // 毎朝8時の通知チェック
