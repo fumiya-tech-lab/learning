@@ -91,65 +91,58 @@ export default function StudyKarteApp() {
     saveAllData(materials, fallCount, updated);
   };
 
-  // --- 全データを保存する関数 ---
- const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
-    const dataToSave = {
-      materials: updatedMaterials || materials,
-      fallCount: nextFallCount || fallCount,
-      reviewPlans: updatedReviews || reviewPlans,
-      storedReportNote: storedReportNote,
-      aiExplanations: aiExplanations
-    };
-
-    try {
-      const response = await fetch("http://192.168.1.200:8000/save", { // ここを /save に修正
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dataToSave),
-      });
-
-      if (response.ok) {
-        console.log("サーバーへの保存が完了しました。");
-      } else {
-        throw new Error("サーバー側で保存に失敗しました。");
-      }
-    } catch (e) {
-      console.error("サーバーへの保存に失敗しました:", e);
-      alert("通信エラーが発生しました。PCのサーバーが動いているか確認してください。");
-    }
-
-    localStorage.setItem("karte_final_backup", JSON.stringify(dataToSave));
+// --- 全データを保存する関数 (1つに整理) ---
+const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
+  const dataToSave = {
+    materials: updatedMaterials || materials,
+    fallCount: nextFallCount || fallCount,
+    reviewPlans: updatedReviews || reviewPlans,
+    storedReportNote: storedReportNote,
+    aiExplanations: aiExplanations
   };
 
-     const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
-    const dataToSave = {
-      materials: updatedMaterials || materials,
-      fallCount: nextFallCount || fallCount,
-      reviewPlans: updatedReviews || reviewPlans,
-      storedReportNote: storedReportNote,
-      aiExplanations: aiExplanations
-    };
+  try {
+    const response = await fetch("http://192.168.1.200:8000/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dataToSave),
+    });
 
-    try {
-      const response = await fetch("http://192.168.1.200:8000/save", { // ここを /save に修正
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dataToSave),
-      });
-
-      if (response.ok) {
-        console.log("サーバーへの保存が完了しました。");
-      } else {
-        throw new Error("サーバー側で保存に失敗しました。");
-      }
-    } catch (e) {
-      console.error("サーバーへの保存に失敗しました:", e);
-      alert("通信エラーが発生しました。PCのサーバーが動いているか確認してください。");
+    if (response.ok) {
+      console.log("サーバーへの保存が完了しました。");
+    } else {
+      throw new Error("サーバー側で保存に失敗しました。");
     }
+  } catch (e) {
+    console.error("サーバーへの保存に失敗しました:", e);
+    alert("通信エラーが発生しました。PCのサーバーが動いているか確認してください。");
+  }
+  // ブラウザ側にもバックアップを保存
+  localStorage.setItem("karte_final_backup", JSON.stringify(dataToSave));
+};
 
-    localStorage.setItem("karte_final_backup", JSON.stringify(dataToSave));
-  };
-  
+// --- 【重要】サーバーからデータを強制的に読み込む関数 ---
+const loadManual = async () => {
+  try {
+    const res = await fetch("http://192.168.1.200:8000/load");
+    if (!res.ok) throw new Error("サーバーに接続できません");
+    const data = await res.json();
+
+    if (data.materials && data.materials.length > 0) {
+      setMaterials(data.materials);
+      setFallCount(data.fallCount || 1);
+      setReviewPlans(data.reviewPlans || []);
+      setStoredReportNote(data.storedReportNote || "");
+      setAiExplanations(data.aiExplanations || []);
+      alert("サーバーから最新データを読み込みました。");
+    } else {
+      alert("サーバーに保存されたデータがありませんでした。");
+    }
+  } catch (e) {
+    console.error(e);
+    alert("読み込み失敗: PCのサーバー（FastAPI）が動いているか確認してください。");
+  }
+};
 
   // 1日あたりの勉強量を計算するロジック
   const calculateDailyPace = (m: Material) => {
