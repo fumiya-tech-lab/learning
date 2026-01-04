@@ -98,7 +98,7 @@ export default function StudyKarteApp() {
 const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
   const dataToSave = {
     materials: updatedMaterials || materials,
-    fallCount: nextFallCount || fallCount,
+    fallCount: nextFallCount ?? fallCount,
     reviewPlans: updatedReviews || reviewPlans,
     storedReportNote: storedReportNote,
     aiExplanations: aiExplanations
@@ -184,7 +184,7 @@ const loadManual = async () => {
     setIsAnalyzing(true);
    try {
       const genAI = new GoogleGenerativeAI(apiKey || "");
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
       // 復習が必要な教材の名前をリストアップ
       const reviewRequiredNames = materials
@@ -209,13 +209,23 @@ const loadManual = async () => {
         要点: [復習の着眼点]
       `;
 
-      // 画像データをGeminiが読める形式に変換（複数枚対応）
-      const imageParts = selectedImages.map(img => ({
-        inlineData: { data: img.split(",")[1], mimeType: "image/jpeg" }
-      }));
+     const imageParts = selectedImages
+  .filter(img => img.includes(","))
+  .map(img => ({
+    inlineData: {
+      data: img.split(",")[1],
+      mimeType: img.startsWith("data:image/png")
+        ? "image/png"
+        : "image/jpeg"
+    }
+  }));
 
-      // プロンプトとすべての画像を一緒に送る
-      const result = await model.generateContent([prompt, ...imageParts]);
+const parts = imageParts.length > 0
+  ? [{ text: prompt }, ...imageParts]
+  : [{ text: prompt }];
+
+const result = await model.generateContent(parts);
+
       
       // ↑ このすぐ下で fullResponse を取得する
       const fullResponse = result.response.text(); 
@@ -264,10 +274,16 @@ const loadManual = async () => {
       setActiveTab('karte');
       setInputNote("");      
       setSelectedImages([]);
-    } catch (e) { 
-      console.error(e);
-      alert("Analyse-Fehler."); 
-    } finally { 
+     }
+    catch (e: any) {
+  console.error("AI Analyse Fehler:", e);
+  alert(
+    "Analyse-Fehler:\n" +
+    (e?.message || JSON.stringify(e))
+  );
+}
+
+   finally { 
       setIsAnalyzing(false); 
     }
   };
