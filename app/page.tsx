@@ -181,20 +181,19 @@ const loadManual = async () => {
         .join(", ");
       
       const prompt = `
-        あなたは優秀な学習コーチです。アップロードされた学習内容の画像と学習者のメモ（${inputNote}）を統合的に分析してください。
+        あなたは優秀な学習コーチです。本日の全学習教材の進捗と学習者のメモ（${inputNote}）を統合的に分析してください。
 
-        【タスク1：学習要約 (Rückblick)】
-        1. 画像から項目・概念を特定してください。
-        2. メモから苦戦した点を読み取ってください。
-        3. 日本語2〜3行で核心を記述し、冒頭に [SUMMARY] と付けてください。
-
+        【タスク1：振り返り (Rückblick)】
+        1. 今日進めた全教材の進捗から、今日の学習内容を日本語で要約してください。
+        2. 冒頭に [SUMMARY] と付けてください。
+  
         【タスク2：復習処方箋 (Analyse)】
-        今回の学習範囲に、以下の「復習対象教材」が含まれている場合のみ復習計画を作成してください。
+        以下の「復習対象教材」の中で、今日進めた範囲から明日以降に復習すべき箇所を特定してください。
         復習対象教材：[ ${reviewRequiredNames} ]
 
         ※対象教材が含まれない場合は、[NO_REVIEW] とだけ出力してください。
-        ※対象の場合の形式：
-        ● [復習予定日: 〇月〇日] / [復習範囲: p.〇-〇] 
+        ※形式：
+        ● [復習予定日: 〇月〇日] /  [復習範囲: p.〇-〇] 
         要点: [復習の着眼点]
       `;
 
@@ -399,11 +398,29 @@ const loadManual = async () => {
                 ))}
               </div>
               <textarea value={inputNote} onChange={(e) => setInputNote(e.target.value)} placeholder="Notizen..." className="w-full h-48 p-6 text-sm italic bg-[#FDFDFD] border border-slate-50 outline-none resize-none" />
-              <button onClick={runAiAnalysis} disabled={isAnalyzing} className="w-full py-5 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-black transition-all font-sans">
-                {isAnalyzing ? "Analysiere..." : "Sichern ＆ Analyse"}
-              </button>
-            </section>
-          </div>
+           
+              <div className="space-y-4 pt-8 border-t border-slate-100">
+                {/* 1. 進捗保存ボタン（AIは動かさない） */}
+                <button 
+                  onClick={async () => {
+                    await saveAllData(materials, fallCount, reviewPlans);
+                    alert("進捗を保存しました。");
+                  }} 
+                  className="w-full py-4 bg-white border border-slate-900 text-slate-900 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-slate-50 transition-all font-sans"
+                >
+                  Fortschritt speichern (進捗のみ保存)
+                </button>
+              
+                {/* 2. 1日の終わりのAI分析ボタン（ここでAIを動かす） */}
+                <button 
+                  onClick={runAiAnalysis} 
+                  disabled={isAnalyzing} 
+                  className="w-full py-5 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-black transition-all font-sans shadow-lg"
+                >
+                  {isAnalyzing ? "Analysiere..." : "Tagesabschluss & AI-Analyse (1日の終わりに実行)"}
+                </button>
+              </section>
+              </div>
         )}
 
         {activeTab === 'settings' && (
