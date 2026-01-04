@@ -167,8 +167,20 @@ const loadManual = async () => {
 
 
   const runAiAnalysis = async () => {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey) return alert("Gemini APIキーを設定してください。");
+      // 1. 【重要】まず最初に現在の全データをサーバーへ保存する
+      // これにより、AI分析が失敗しても進捗（ページ数）は消えなくなります
+      await saveAllData(materials, fallCount, reviewPlans);
+
+      // 2. その後でGemini APIキーのチェックを行う
+      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      
+      if (!apiKey) {
+      // キーがない場合は、保存完了だけ伝えて「Karte」タブに戻す
+      alert("進捗を保存しました！（※APIキー未設定のためAI分析はスキップします）");
+      setActiveTab('karte');
+      return; // ここで終了させる
+    }
+
     setIsAnalyzing(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
@@ -244,7 +256,7 @@ const loadManual = async () => {
       const nextCount = fallCount + 1;
       setFallCount(nextCount);
       setReviewPlans(newReviews);
-      saveAllData(materials, nextCount, newReviews);
+      await saveAllData(materials, nextCount, newReviews); // ★ここを修正
       
       setActiveTab('karte');
       setInputNote("");      
@@ -299,58 +311,49 @@ const loadManual = async () => {
       <section className="space-y-8">
         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-950 border-b border-slate-100 pb-2 font-sans">Ziel (Heutige Planung)</h3>
         <div className="grid grid-cols-1 gap-8 pl-6 border-l border-slate-200">
-          {materials.map((m, idx) => {
-            const dailyGoal = calculateDailyPace(m); 
-            return (
-              <div key={m.id} className="group">
-                {/* 教材ラベル：01, 02... */}
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 font-sans">
-                  <span className="w-3.5 h-3.5 flex items-center justify-center border border-slate-300 rounded-full text-[7px] font-mono text-slate-400">0{idx + 1}</span>
-                  {m.name}
-                </p>
+         {materials.map((m, idx) => {
+  const dailyGoal = calculateDailyPace(m); 
+  return (
+    <div key={m.id} className="group">
+      {/* 教材タイトル */}
+      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 font-sans">
+        <span className="w-3.5 h-3.5 flex items-center justify-center border border-slate-300 rounded-full text-[7px] font-mono text-slate-400">0{idx + 1}</span>
+        {m.name}
+      </p>
+      
+      {/* 数値表示エリア */}
+      <div className="flex items-baseline gap-6 text-slate-700">
+        {/* 現在地点 */}
+        <div className="flex flex-col">
+          <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Aktueller Stand</span>
+          <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+            <span className="text-[10px] text-slate-300 font-mono italic">{m.unit === 'Seiten' ? 'p.' : 'Lekt.'}</span>
+            <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-500">{m.currentPage + 1}</span>
+          </div>
+        </div>
+
+        {/* 矢印 */}
+        <div className="text-slate-200 self-end pb-2 font-thin text-xl">→</div>
+
+        {/* 目標地点 */}
+        <div className="flex flex-col">
+          <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Tagesziel</span>
+          <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+            <span className="text-[10px] text-slate-400 font-mono italic">{m.unit === 'Seiten' ? 'p.' : 'Lekt.'}</span>
+            <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-900 font-bold">{Math.min(m.totalPages, m.currentPage + dailyGoal)}</span>
+          </div>
+        </div>
+          
+        {/* ペース表示 (Tempo) */}
+        <div className="ml-2 self-end pb-2">
+           <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">( Tempo: +{dailyGoal} )</span>
+        </div>
+      </div> {/* ← ここで数値エリアの横並び(flex)を閉じる */}
+    </div>   {/* ← ここで教材1つ分(group)を閉じる */}
+  );
+})}
                 
-                {/* 数値表示：タイプライター風 */}
-                <div className="flex items-baseline gap-6 text-slate-700">
-                  {/* 現在地点 (Aktuell) */}
-                  <div className="flex flex-col">
-                  <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Aktueller Stand</span>
-                  <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
-                    {/* ★ p. か Lekt. かを切り替え */}
-                    <span className="text-[10px] text-slate-300 font-mono italic">
-                      {m.unit === 'Seiten' ? 'p.' : 'Lekt.'}
-                    </span>
-                    <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-500">
-                      {m.currentPage + 1}
-                    </span>
-                  </div>
-                </div>
-      
-                  {/* 矢印 */}
-                  <div className="text-slate-200 self-end pb-2 font-thin text-xl">→</div>
-      
-                  {/* 目標地点 (Ziel) */}
-                 <div className="flex flex-col">
-                  <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Tagesziel</span>
-                  <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
-                    <span className="text-[10px] text-slate-400 font-mono italic">
-                      {m.unit === 'Seiten' ? 'p.' : 'Lekt.'}
-                    </span>
-                    <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-900 font-bold">
-                      {Math.min(m.totalPages, m.currentPage + dailyGoal)}
-                    </span>
-                  </div>
-                </div>
-                  
-                  {/* ペース表示 (Tempo) */}
-                  <div className="ml-2 self-end pb-2">
-                     <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">
-                       ( Tempo: +{dailyGoal} )
-                     </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+            
         </div>
       </section>
 
@@ -399,29 +402,30 @@ const loadManual = async () => {
               </div>
               <textarea value={inputNote} onChange={(e) => setInputNote(e.target.value)} placeholder="Notizen..." className="w-full h-48 p-6 text-sm italic bg-[#FDFDFD] border border-slate-50 outline-none resize-none" />
            
-              <div className="space-y-4 pt-8 border-t border-slate-100">
-                {/* 1. 進捗保存ボタン（AIは動かさない） */}
-                <button 
-                  onClick={async () => {
-                    await saveAllData(materials, fallCount, reviewPlans);
-                    alert("進捗を保存しました。");
-                  }} 
-                  className="w-full py-4 bg-white border border-slate-900 text-slate-900 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-slate-50 transition-all font-sans"
-                >
-                  Fortschritt speichern (進捗のみ保存)
-                </button>
-              
-                {/* 2. 1日の終わりのAI分析ボタン（ここでAIを動かす） */}
-                <button 
-                  onClick={runAiAnalysis} 
-                  disabled={isAnalyzing} 
-                  className="w-full py-5 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-black transition-all font-sans shadow-lg"
-                >
-                  {isAnalyzing ? "Analysiere..." : "Tagesabschluss & AI-Analyse (1日の終わりに実行)"}
-                </button>
-              </section>
-              </div>
-        )}
+           <div className="space-y-4 pt-8 border-t border-slate-100">
+  {/* 1. 進捗保存ボタン（AIは動かさず、PCへの保存だけ行う） */}
+  <button 
+    onClick={async () => {
+      await saveAllData(materials, fallCount, reviewPlans);
+      alert("進捗を保存しました。");
+    }} 
+    className="w-full py-4 bg-white border border-slate-900 text-slate-900 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-slate-50 transition-all font-sans"
+  >
+    Fortschritt speichern (進捗のみ保存)
+  </button>
+
+  {/* 2. 1日の終わりのAI分析ボタン（ここでGeminiを呼び出す） */}
+  <button 
+    onClick={runAiAnalysis} 
+    disabled={isAnalyzing} 
+    className="w-full py-5 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-black transition-all font-sans shadow-lg"
+  >
+    {isAnalyzing ? "Analysiere..." : "Tagesabschluss & AI-Analyse (1日の終わりに実行)"}
+  </button>
+</div>
+</section>
+</div>    
+              )}
 
         {activeTab === 'settings' && (
           <div className="space-y-12 animate-in slide-in-from-bottom-2 duration-500">
