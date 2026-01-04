@@ -182,7 +182,7 @@ const loadManual = async () => {
     }
 
     setIsAnalyzing(true);
-    try {
+   try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
@@ -209,11 +209,16 @@ const loadManual = async () => {
         要点: [復習の着眼点]
       `;
 
+      // 画像データをGeminiが読める形式に変換（複数枚対応）
       const imageParts = selectedImages.map(img => ({
         inlineData: { data: img.split(",")[1], mimeType: "image/jpeg" }
       }));
+
+      // プロンプトとすべての画像を一緒に送る
+      const result = await model.generateContent([prompt, ...imageParts]);
       
-      const fullResponse = (await result.response).text();
+      // ↑ このすぐ下で fullResponse を取得する
+      const fullResponse = result.response.text(); 
       const lines = fullResponse.split('\n');
 
       // 1. 要約の抽出
@@ -344,7 +349,9 @@ const loadManual = async () => {
           
         {/* ペース表示 (Tempo) */}
         <div className="ml-2 self-end pb-2">
-           <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">( Tempo: +{dailyGoal} )</span>
+          <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">
+            ( Tempo: +{dailyGoal} )
+          </span>
         </div>
       </div>
     </div>
