@@ -348,8 +348,8 @@ const loadManual = async () => {
         <div className="ml-2 self-end pb-2">
            <span className="text-[9px] text-slate-300 font-mono italic tracking-tighter">( Tempo: +{dailyGoal} )</span>
         </div>
-      </div> {/* ← ここで数値エリアの横並び(flex)を閉じる */}
-    </div>   {/* ← ここで教材1つ分(group)を閉じる */}
+      </div>
+    </div>
   );
 })}
                 
