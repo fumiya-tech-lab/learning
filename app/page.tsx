@@ -258,7 +258,7 @@ const loadManual = async () => {
       
       setActiveTab('karte');
       setInputNote("");      
-      setSelectedImage(null); 
+      setSelectedImages([]);
     } catch (e) { 
       console.error(e);
       alert("Analyse-Fehler."); 
@@ -380,9 +380,30 @@ const loadManual = async () => {
           <div className="space-y-10 animate-in slide-in-from-bottom-2 duration-500">
             <h2 className="text-[10px] font-bold text-slate-300 uppercase tracking-widest border-b pb-2 font-sans">Dokumentation ＆ Analyse</h2>
             <section className="bg-white border border-slate-200 p-8 md:p-12 space-y-12 shadow-sm">
-              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-100 h-64 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-all rounded-sm overflow-hidden text-slate-300 text-[9px] font-bold uppercase tracking-widest font-sans">
-                {selectedImage ? <img src={selectedImage} alt="Preview" className="h-full object-contain p-2" /> : "Screenshot hochladen"}
-                <input type="file" ref={fileInputRef} onChange={(e) => { const f=e.target.files?.[0]; if(f){ const r=new FileReader(); r.onloadend=()=>setSelectedImage(r.result as string); r.readAsDataURL(f); } }} className="hidden" accept="image/*" />
+              {/* 画像選択エリア */}
+              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-100 p-4 min-h-32 flex flex-wrap gap-2 items-center justify-center cursor-pointer hover:bg-slate-50 transition-all rounded-sm overflow-hidden text-slate-300 text-[9px] font-bold uppercase tracking-widest font-sans">
+                {selectedImages.length > 0 ? (
+                  selectedImages.map((img, i) => (
+                    <img key={i} src={img} alt="Preview" className="h-24 w-24 object-cover border border-slate-100" />
+                  ))
+                ) : (
+                  "Screenshots hochladen (複数選択可)"
+                )}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  multiple // ★複数選択を許可
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    files.forEach(f => {
+                      const r = new FileReader();
+                      r.onloadend = () => setSelectedImages(prev => [...prev, r.result as string]);
+                      r.readAsDataURL(f);
+                    });
+                  }} 
+                  className="hidden" 
+                  accept="image/*" 
+                />
               </div>
               <div className="space-y-8 font-sans">
                 {materials.map(m => (
