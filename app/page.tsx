@@ -290,7 +290,7 @@ const loadManual = async () => {
               </div>
               <div className="text-right text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold leading-tight">
                 FALL-NR. {fallCount.toString().padStart(4, '0')} <br /> 
-                {new Date().toLocaleDateString('de-DE')}
+                {new Date().toLocaleDateString('de-DE')}<br />
               </div>
             </header>
 
