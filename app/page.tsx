@@ -7,10 +7,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 interface Material {
   id: string;
   name: string;
-  totalPages: number;
-  currentPage: number;
+  totalPages: number;  // 数値（全ページ数 または 全課数）
+  currentPage: number; // 数値（現在ページ または 現在の課）
   targetDate: string;
   needsReview: boolean;
+  unit: 'Seiten' | 'Lektionen'; // ★追加：単位を保存する項目
 }
 interface ReviewPlan {
   id: string;
@@ -50,11 +51,13 @@ export default function StudyKarteApp() {
           setStoredReportNote(data.storedReportNote || "");
           setAiExplanations(data.aiExplanations || []);
         } else {
-          setMaterials([{ id: '1', name: "学習用教材", totalPages: 100, currentPage: 0, targetDate: "2026-12-31", needsReview: true }]);
+          setMaterials([{ id: '1', name: "学習用教材", totalPages: 100, currentPage: 0, targetDate: "2026-01-31", needsReview: true, 
+    unit: 'Seiten' }]);
         }
       } catch (e) {
         console.error("読み込み失敗:", e);
-        setMaterials([{ id: '1', name: "サーバー接続エラー", totalPages: 100, currentPage: 0, targetDate: "2026-12-31", needsReview: true }]);
+        setMaterials([{ id: '1', name: "サーバー接続エラー", totalPages: 100, currentPage: 0, targetDate: "2026-01-31", needsReview: true, 
+    unit: 'Seiten' }]);
       }
       setMounted(true);
     };
@@ -311,28 +314,33 @@ const loadManual = async () => {
                 <div className="flex items-baseline gap-6 text-slate-700">
                   {/* 現在地点 (Aktuell) */}
                   <div className="flex flex-col">
-                    <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Aktueller Stand</span>
-                    <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
-                      <span className="text-[10px] text-slate-300 font-mono italic">p.</span>
-                      <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-500">
-                        {m.currentPage + 1}
-                      </span>
-                    </div>
+                  <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Aktueller Stand</span>
+                  <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+                    {/* ★ p. か Lekt. かを切り替え */}
+                    <span className="text-[10px] text-slate-300 font-mono italic">
+                      {m.unit === 'Seiten' ? 'p.' : 'Lekt.'}
+                    </span>
+                    <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-500">
+                      {m.currentPage + 1}
+                    </span>
                   </div>
+                </div>
       
                   {/* 矢印 */}
                   <div className="text-slate-200 self-end pb-2 font-thin text-xl">→</div>
       
                   {/* 目標地点 (Ziel) */}
-                  <div className="flex flex-col">
-                    <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Tagesziel</span>
-                    <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
-                      <span className="text-[10px] text-slate-400 font-mono italic">p.</span>
-                      <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-900 font-bold">
-                        {Math.min(m.totalPages, m.currentPage + dailyGoal)}
-                      </span>
-                    </div>
+                 <div className="flex flex-col">
+                  <span className="text-[7px] text-slate-300 uppercase font-sans font-bold tracking-tight mb-1">Tagesziel</span>
+                  <div className="flex items-baseline gap-1 border-b border-slate-100 pb-1">
+                    <span className="text-[10px] text-slate-400 font-mono italic">
+                      {m.unit === 'Seiten' ? 'p.' : 'Lekt.'}
+                    </span>
+                    <span className="text-xl font-mono tracking-tighter w-12 text-center text-slate-900 font-bold">
+                      {Math.min(m.totalPages, m.currentPage + dailyGoal)}
+                    </span>
                   </div>
+                </div>
                   
                   {/* ペース表示 (Tempo) */}
                   <div className="ml-2 self-end pb-2">
@@ -432,15 +440,35 @@ const loadManual = async () => {
                   </div>
                   {/* レイアウト修正：スマホでは1列(grid-cols-1)、PCでは2列(md:grid-cols-2) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 text-[9px] font-bold text-slate-300 uppercase tracking-widest font-sans">
-                    <div>
-                      <label className="block mb-1">Seiten gesamt (全ページ数)</label>
-                      <input 
-                        type="number" 
-                        value={m.totalPages} 
-                        onChange={(e) => updateMaterial(m.id, 'totalPages', Number(e.target.value))} 
-                        className="w-full text-xl md:text-2xl font-black border-b border-slate-100 outline-none text-slate-900 font-sans bg-transparent" 
-                      />
+                  <div>
+                    <label className="block mb-1">
+                      {/* ★単位によってラベルを切り替え */}
+                      {m.unit === 'Seiten' ? 'Seiten gesamt (全ページ数)' : 'Lektionen gesamt (全課数)'}
+                    </label>
+                    
+                    {/* ★単位選択スイッチを追加 */}
+                    <div className="flex gap-2 mb-2">
+                      <button 
+                        onClick={() => updateMaterial(m.id, 'unit', 'Seiten')}
+                        className={`px-2 py-0.5 border ${m.unit === 'Seiten' ? 'bg-slate-900 text-white border-slate-900' : 'text-slate-400 border-slate-200'}`}
+                      >
+                        Seite
+                      </button>
+                      <button 
+                        onClick={() => updateMaterial(m.id, 'unit', 'Lektionen')}
+                        className={`px-2 py-0.5 border ${m.unit === 'Lektionen' ? 'bg-slate-900 text-white border-slate-900' : 'text-slate-400 border-slate-200'}`}
+                      >
+                        Lektion
+                      </button>
                     </div>
+                
+                    <input 
+                      type="number" 
+                      value={m.totalPages} 
+                      onChange={(e) => updateMaterial(m.id, 'totalPages', Number(e.target.value))} 
+                      className="w-full text-xl md:text-2xl font-black border-b border-slate-100 outline-none text-slate-900 font-sans bg-transparent" 
+                    />
+                  </div>
                     <div>
                       <label className="block mb-1">Ziel-Datum (目標期限)</label>
                       <input 
@@ -467,7 +495,20 @@ const loadManual = async () => {
                   </div>
                 </div>
               ))}
-              <button onClick={() => setMaterials([...materials, { id: Date.now().toString(), name: "Material", totalPages: 100, currentPage: 0, targetDate: "2025-12-31", needsReview: true }])} className="w-full py-4 border-2 border-dashed border-slate-200 text-slate-300 text-[10px] font-bold uppercase hover:border-slate-950 font-sans transition-all">+ Hinzufügen</button>
+             <button 
+              onClick={() => setMaterials([...materials, { 
+                id: Date.now().toString(), 
+                name: "Material", 
+                totalPages: 100, 
+                currentPage: 0, 
+                targetDate: "2026-01-31", 
+                needsReview: true, 
+                unit: 'Seiten' 
+              }])} 
+              className="w-full py-4 border-2 border-dashed border-slate-200 text-slate-300 text-[10px] font-bold uppercase hover:border-slate-950 font-sans transition-all"
+            >
+            + Hinzufügen
+            </button>
             </div>
 
             {/* 復習予定管理セクション */}
