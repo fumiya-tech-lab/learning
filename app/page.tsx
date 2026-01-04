@@ -31,8 +31,8 @@ export default function StudyKarteApp() {
   const [inputNote, setInputNote] = useState("");
   const [storedReportNote, setStoredReportNote] = useState("");
   const [aiExplanations, setAiExplanations] = useState<string[]>([]);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null); 
   const [reviewPlans, setReviewPlans] = useState<ReviewPlan[]>([]);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
@@ -209,11 +209,9 @@ const loadManual = async () => {
         要点: [復習の着眼点]
       `;
 
-      const result = await model.generateContent(
-        selectedImage 
-          ? [prompt, { inlineData: { data: selectedImage.split(",")[1], mimeType: "image/jpeg" } }] 
-          : [prompt]
-      );
+      const imageParts = selectedImages.map(img => ({
+        inlineData: { data: img.split(",")[1], mimeType: "image/jpeg" }
+      }));
       
       const fullResponse = (await result.response).text();
       const lines = fullResponse.split('\n');
