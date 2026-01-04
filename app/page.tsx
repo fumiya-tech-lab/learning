@@ -186,7 +186,7 @@ const loadManual = async () => {
     setIsAnalyzing(true);
    try {
       const genAI = new GoogleGenerativeAI(apiKey || "");
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
       
       // 復習が必要な教材の名前をリストアップ
       const reviewRequiredNames = materials
