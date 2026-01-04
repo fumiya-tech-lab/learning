@@ -120,6 +120,35 @@ export default function StudyKarteApp() {
 
     localStorage.setItem("karte_final_backup", JSON.stringify(dataToSave));
   };
+
+     const saveAllData = async (updatedMaterials?: Material[], nextFallCount?: number, updatedReviews?: ReviewPlan[]) => {
+    const dataToSave = {
+      materials: updatedMaterials || materials,
+      fallCount: nextFallCount || fallCount,
+      reviewPlans: updatedReviews || reviewPlans,
+      storedReportNote: storedReportNote,
+      aiExplanations: aiExplanations
+    };
+
+    try {
+      const response = await fetch("http://192.168.1.200:8000/save", { // ここを /save に修正
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSave),
+      });
+
+      if (response.ok) {
+        console.log("サーバーへの保存が完了しました。");
+      } else {
+        throw new Error("サーバー側で保存に失敗しました。");
+      }
+    } catch (e) {
+      console.error("サーバーへの保存に失敗しました:", e);
+      alert("通信エラーが発生しました。PCのサーバーが動いているか確認してください。");
+    }
+
+    localStorage.setItem("karte_final_backup", JSON.stringify(dataToSave));
+  };
   
 
   // 1日あたりの勉強量を計算するロジック
@@ -376,29 +405,26 @@ export default function StudyKarteApp() {
           </div>
         )}
 
-      {activeTab === 'settings' && (
+        {activeTab === 'settings' && (
           <div className="space-y-12 animate-in slide-in-from-bottom-2 duration-500">
             <header className="border-b border-slate-100 pb-2 flex justify-between items-end text-[10px] font-bold text-slate-300 uppercase tracking-widest font-sans">
               <span>Setup</span>
-              <div className="flex gap-4 items-center">
-                <button 
-                  onClick={() => {
-                    Notification.requestPermission().then(permission => {
-                      if (permission === "granted") {
-                        alert("Benachrichtigung aktiviert.");
-                      }
-                    });
-                  }}
-                  className="text-slate-300 hover:text-slate-950 transition-colors"
-                  title="Notifications"
-                >
-                  <Bell className="w-4 h-4" />
-                </button>
-                <button onClick={() => { saveAllData(); alert("Gespeichert."); }} className="bg-slate-900 text-white px-4 py-2 hover:bg-black font-sans">
-                  <Save className="w-3 h-3 inline mr-2" /> Speichern
-                </button>
-              </div>
-            </header>
+              {/* Setupタブのヘッダー部分 */}
+            <div className="flex gap-4 items-center">
+              {/* 【追加】読み込みボタン */}
+              <button 
+                onClick={loadManual} 
+                className="bg-slate-100 text-slate-600 px-4 py-2 hover:bg-slate-200 font-sans flex items-center gap-2 transition-colors"
+              >
+                <Upload className="w-3 h-3" /> 読み込み
+              </button>
+            
+              {/* 既存の保存ボタン */}
+              <button onClick={() => { saveAllData(); alert("Gespeichert."); }} className="bg-slate-900 text-white px-4 py-2 hover:bg-black font-sans">
+                <Save className="w-3 h-3 inline mr-2" /> Speichern
+              </button>
+            </div>
+                </header>
 
             {/* 教材リスト */}
             <div className="grid grid-cols-1 gap-6 font-sans">
