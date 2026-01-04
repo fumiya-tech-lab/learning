@@ -169,6 +169,8 @@ const loadManual = async () => {
   const runAiAnalysis = async () => {
       // 1. 【重要】まず最初に現在の全データをサーバーへ保存する
       // これにより、AI分析が失敗しても進捗（ページ数）は消えなくなります
+    console.log("API KEY:", process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+
       await saveAllData(materials, fallCount, reviewPlans);
 
       // 2. その後でGemini APIキーのチェックを行う
