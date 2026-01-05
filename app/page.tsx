@@ -244,25 +244,34 @@ const result = await model.generateContent(parts);
       if (fullResponse.includes("[NO_REVIEW]")) {
         setAiExplanations(["本日の学習範囲は復習予約の必要はありません。"]);
       } else {
-        const prescriptionLines = lines.filter(l => l.trim().startsWith('●') || l.trim().startsWith('要点'));
+        // AIの回答から「●」や「要点」で始まる行を抽出
+        const prescriptionLines = lines.filter(l => l.trim().startsWith('●') || l.trim().startsWith('要点') || l.includes('月') && l.includes('日'));
         setAiExplanations(prescriptionLines);
 
-        // 復習プランがある場合のみリストへ追加
         prescriptionLines.forEach(line => {
-          const dateMatch = line.match(/(\d{1,2})月(\d{1,2})日/);
+          // 数字を半角に統一してから月日を探す（全角対策）
+          const normalizedLine = line.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+          const dateMatch = normalizedLine.match(/(\d{1,2})[月\/](\d{1,2})日?/);
+          
           if (dateMatch) {
             const month = parseInt(dateMatch[1]);
             const day = parseInt(dateMatch[2]);
             const now = new Date();
             let year = now.getFullYear();
-            if (month < now.getMonth() + 1) year += 1;
+            
+            // 年越し考慮（例：12月に翌年1月の予定が出た場合）
+            if (month < now.getMonth() + 1 && now.getMonth() >= 10) year += 1;
+
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
-            newReviews.push({
-              id: Date.now().toString() + Math.random(),
-              date: dateStr,
-              content: line
-            });
+            // すでに同じ内容があれば重複して登録しない
+            if (!newReviews.some(r => r.date === dateStr && r.content === line)) {
+              newReviews.push({
+                id: Date.now().toString() + Math.random(),
+                date: dateStr,
+                content: line.trim()
+              });
+            }
           }
         });
       }
